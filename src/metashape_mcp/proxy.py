@@ -1,12 +1,7 @@
 """Stdio-to-HTTP proxy for Metashape MCP server.
 
-Bridges Claude Code (stdio) to the Metashape HTTP server running inside
-Metashape. Stdio transport has no timeout, so long operations like
-matching, alignment, and depth maps block properly until completion.
-
-The HTTP server still runs inside Metashape on port 8765.
-This proxy just translates stdio <-> HTTP so Claude Code can wait
-indefinitely for operations to finish.
+Bridges Claude Code (stdio, no timeout) to Metashape HTTP server.
+Uses FastMCP create_proxy for proper MCP protocol handling.
 """
 
 from fastmcp.server import create_proxy
@@ -14,4 +9,4 @@ from fastmcp.server import create_proxy
 proxy = create_proxy("http://127.0.0.1:8765/mcp", name="Metashape")
 
 if __name__ == "__main__":
-    proxy.run()  # Defaults to stdio — no timeout
+    proxy.run(transport="stdio")
