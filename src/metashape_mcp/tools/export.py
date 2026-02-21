@@ -51,9 +51,10 @@ def register(mcp) -> None:
         require_model(chunk)
 
         fmt = resolve_enum("model_format", format)
-        cb = make_progress_callback(ctx, "Exporting model") if ctx else None
+        cb = make_progress_callback(ctx, "Exporting model") if ctx else make_tracking_callback("Exporting model")
 
-        chunk.exportModel(
+        await run_in_thread(
+            chunk.exportModel,
             path=path,
             format=fmt,
             save_texture=save_texture,
@@ -93,9 +94,10 @@ def register(mcp) -> None:
 
         fmt = resolve_enum("point_cloud_format", format)
         src = resolve_enum("data_source", source_data)
-        cb = make_progress_callback(ctx, "Exporting point cloud") if ctx else None
+        cb = make_progress_callback(ctx, "Exporting point cloud") if ctx else make_tracking_callback("Exporting point cloud")
 
-        chunk.exportPointCloud(
+        await run_in_thread(
+            chunk.exportPointCloud,
             path=path,
             format=fmt,
             source_data=src,
@@ -129,9 +131,10 @@ def register(mcp) -> None:
         require_orthomosaic(chunk)
 
         fmt = resolve_enum("raster_format", format)
-        cb = make_progress_callback(ctx, "Exporting orthomosaic") if ctx else None
+        cb = make_progress_callback(ctx, "Exporting orthomosaic") if ctx else make_tracking_callback("Exporting orthomosaic")
 
-        chunk.exportRaster(
+        await run_in_thread(
+            chunk.exportRaster,
             path=path,
             format=fmt,
             source_data=Metashape.OrthomosaicData,
@@ -163,9 +166,10 @@ def register(mcp) -> None:
         require_elevation(chunk)
 
         fmt = resolve_enum("raster_format", format)
-        cb = make_progress_callback(ctx, "Exporting DEM") if ctx else None
+        cb = make_progress_callback(ctx, "Exporting DEM") if ctx else make_tracking_callback("Exporting DEM")
 
-        chunk.exportRaster(
+        await run_in_thread(
+            chunk.exportRaster,
             path=path,
             format=fmt,
             source_data=Metashape.ElevationData,
@@ -194,9 +198,10 @@ def register(mcp) -> None:
             Export confirmation.
         """
         chunk = get_chunk()
-        cb = make_progress_callback(ctx, "Exporting report") if ctx else None
+        cb = make_progress_callback(ctx, "Exporting report") if ctx else make_tracking_callback("Exporting report")
 
-        chunk.exportReport(
+        await run_in_thread(
+            chunk.exportReport,
             path=path,
             title=title,
             description=description,
@@ -224,9 +229,10 @@ def register(mcp) -> None:
         chunk = get_chunk()
 
         fmt = resolve_enum("cameras_format", format)
-        cb = make_progress_callback(ctx, "Exporting cameras") if ctx else None
+        cb = make_progress_callback(ctx, "Exporting cameras") if ctx else make_tracking_callback("Exporting cameras")
 
-        chunk.exportCameras(
+        await run_in_thread(
+            chunk.exportCameras,
             path=path,
             format=fmt,
             progress=cb,
@@ -257,9 +263,10 @@ def register(mcp) -> None:
             )
 
         fmt = resolve_enum("tiled_model_format", format)
-        cb = make_progress_callback(ctx, "Exporting tiled model") if ctx else None
+        cb = make_progress_callback(ctx, "Exporting tiled model") if ctx else make_tracking_callback("Exporting tiled model")
 
-        chunk.exportTiledModel(
+        await run_in_thread(
+            chunk.exportTiledModel,
             path=path,
             format=fmt,
             progress=cb,
@@ -291,9 +298,10 @@ def register(mcp) -> None:
         chunk = get_chunk()
 
         fmt = resolve_enum("shapes_format", format)
-        cb = make_progress_callback(ctx, "Exporting shapes") if ctx else None
+        cb = make_progress_callback(ctx, "Exporting shapes") if ctx else make_tracking_callback("Exporting shapes")
 
-        chunk.exportShapes(
+        await run_in_thread(
+            chunk.exportShapes,
             path=path,
             format=fmt,
             save_polygons=save_polygons,
@@ -326,7 +334,8 @@ def register(mcp) -> None:
 
         fmt = resolve_enum("reference_format", format)
 
-        chunk.exportReference(
+        await run_in_thread(
+            chunk.exportReference,
             path=path,
             format=fmt,
             delimiter=delimiter,
@@ -360,9 +369,10 @@ def register(mcp) -> None:
 
         fmt = resolve_enum("point_cloud_format", format)
         src = resolve_enum("data_source", "tie_points")
-        cb = make_progress_callback(ctx, "Exporting tie points") if ctx else None
+        cb = make_progress_callback(ctx, "Exporting tie points") if ctx else make_tracking_callback("Exporting tie points")
 
-        chunk.exportPointCloud(
+        await run_in_thread(
+            chunk.exportPointCloud,
             path=path,
             format=fmt,
             source_data=src,
