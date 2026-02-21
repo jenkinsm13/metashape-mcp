@@ -25,8 +25,9 @@ _operation_state = {
 }
 _state_lock = threading.Lock()
 
-# If no progress callback fires within this window, assume the operation died
-_STALE_TIMEOUT = 10.0
+# If no progress callback fires within this window, assume the operation died.
+# Large operations may have gaps between callbacks — 120s is conservative.
+_STALE_TIMEOUT = 120.0
 
 
 def request_cancel():

@@ -50,7 +50,7 @@ def register(mcp) -> None:
             "markers_detected": len(chunk.markers),
             "markers": [
                 {"label": m.label, "key": m.key}
-                for m in chunk.markers[:50]  # Limit output
+                for m in chunk.markers
             ],
         }
 

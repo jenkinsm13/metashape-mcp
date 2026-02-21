@@ -18,11 +18,12 @@ def register(mcp) -> None:
     async def match_photos(
         downscale: int = 1,
         generic_preselection: bool = True,
-        reference_preselection: bool = True,
+        reference_preselection: bool = False,
         keypoint_limit: int = 40000,
         tiepoint_limit: int = 4000,
         filter_stationary_points: bool = True,
         guided_matching: bool = False,
+        keep_keypoints: bool = True,
         reset_matches: bool = False,
         ctx: Context = None,
     ) -> dict:
@@ -39,6 +40,9 @@ def register(mcp) -> None:
             tiepoint_limit: Maximum tie points per photo.
             filter_stationary_points: Filter stationary points across images.
             guided_matching: Enable guided image matching.
+            keep_keypoints: Keep keypoints after matching. Must be True for
+                incremental workflows so subsequent batches can cross-match
+                new cameras against existing ones.
             reset_matches: Reset existing matches before matching.
 
         Returns:
@@ -58,6 +62,7 @@ def register(mcp) -> None:
             tiepoint_limit=tiepoint_limit,
             filter_stationary_points=filter_stationary_points,
             guided_matching=guided_matching,
+            keep_keypoints=keep_keypoints,
             reset_matches=reset_matches,
             progress=cb,
         )

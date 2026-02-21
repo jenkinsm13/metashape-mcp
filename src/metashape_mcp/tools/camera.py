@@ -359,7 +359,7 @@ def register(mcp) -> None:
             quality_max: Maximum image quality score (inclusive).
 
         Returns:
-            Dict with matching camera labels (max 500) and total count.
+            Dict with matching camera labels and total count.
         """
         chunk = get_chunk()
         matches = []
@@ -384,7 +384,7 @@ def register(mcp) -> None:
                     continue
             matches.append(cam.label)
 
-        return {"labels": matches[:500], "count": len(matches)}
+        return {"labels": matches, "count": len(matches)}
 
     @mcp.tool()
     def get_camera_metadata(label: str) -> dict:

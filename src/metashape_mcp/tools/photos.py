@@ -97,7 +97,7 @@ def register(mcp) -> None:
             "analyzed": len(qualities),
             "average_quality": round(avg_q, 3),
             "low_quality_count": len(low_quality),
-            "low_quality_cameras": low_quality[:20],  # Limit output
+            "low_quality_cameras": low_quality,
         }
 
     @mcp.tool()

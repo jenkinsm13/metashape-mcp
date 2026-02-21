@@ -14,3 +14,9 @@ venv/
 *.psz
 *.pdf
 .claude/
+
+# Local-only files
+api_reference.txt
+tmp_b64.txt
+mcp_call.py
+docs/plans/

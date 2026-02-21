@@ -33,7 +33,7 @@ def register(mcp) -> None:
 4. **Remove Bad Photos**: If any cameras have quality < 0.5, remove them
 5. **Set CRS**: set_crs(epsg_code={crs_epsg})
 6. **Enable CPU for Alignment**: set_gpu_config(cpu_enable=True)
-7. **Match Photos**: match_photos(downscale={ds}, generic_preselection=True, reference_preselection=True)
+7. **Match Photos**: match_photos(downscale={ds}, generic_preselection=True, reference_preselection=True, keep_keypoints=True)
 8. **Align Cameras**: align_cameras(adaptive_fitting=True)
 9. **Filter Tie Points** (USGS workflow):
    a. filter_tie_points(criterion="ReconstructionUncertainty", threshold=10) then optimize_cameras()
@@ -79,7 +79,7 @@ Use resources to monitor processing state between steps.
 2. **Add Photos**: add_photos(["{photo_folder}"])
 3. **Analyze Quality**: analyze_images()
 4. **Enable CPU for Alignment**: set_gpu_config(cpu_enable=True)
-5. **Match Photos**: match_photos(downscale={ds}, generic_preselection=True)
+5. **Match Photos**: match_photos(downscale={ds}, generic_preselection=True, keep_keypoints=True)
 6. **Align Cameras**: align_cameras(adaptive_fitting=True)
 7. **Check Alignment**: Use metashape://chunk/Chunk 1/cameras to verify alignment rate
 8. **Filter Tie Points** (USGS workflow):
@@ -221,7 +221,7 @@ to build up coverage incrementally.
 
 1. **User enables a batch of ~2000 cameras** (or tells you to add a batch from a folder)
 2. **Enable CPU**: set_gpu_config(cpu_enable=True)
-3. match_photos(downscale=1, generic_preselection=True, reference_preselection=True, keypoint_limit=60000, tiepoint_limit=4000, guided_matching=True)
+3. match_photos(downscale=1, generic_preselection=True, reference_preselection=True, keep_keypoints=True, keypoint_limit=60000, tiepoint_limit=4000, guided_matching=True)
 4. align_cameras(adaptive_fitting=True, reset_alignment=False)
    - reset_alignment=False is CRITICAL after the first batch — always build on existing alignment
 5. **CHECK**: Read metashape://chunk/*/cameras. Report alignment rate to the user.
