@@ -1,0 +1,17 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "metashape-mcp"
+version = "0.1.0"
+description = "MCP server for Agisoft Metashape Professional 2.3+"
+readme = "README.md"
+requires-python = ">=3.12"
+license = "MIT"
+dependencies = [
+    "mcp[cli]>=1.2.0",
+]
+
+[project.scripts]
+metashape-mcp = "metashape_mcp.server:main"

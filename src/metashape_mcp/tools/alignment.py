@@ -1,0 +1,279 @@
+"""Photo alignment tools: match photos, align cameras, optimize."""
+
+from mcp.server.fastmcp import Context
+
+from metashape_mcp.utils.bridge import get_chunk, require_tie_points
+from metashape_mcp.utils.enums import resolve_enum
+from metashape_mcp.utils.progress import (
+    make_progress_callback,
+    make_tracking_callback,
+    run_in_thread,
+)
+
+
+def register(mcp) -> None:
+    """Register alignment tools."""
+
+    @mcp.tool()
+    async def match_photos(
+        downscale: int = 1,
+        generic_preselection: bool = True,
+        reference_preselection: bool = True,
+        keypoint_limit: int = 40000,
+        tiepoint_limit: int = 4000,
+        filter_stationary_points: bool = True,
+        guided_matching: bool = False,
+        reset_matches: bool = False,
+        ctx: Context = None,
+    ) -> dict:
+        """Perform feature matching between photos.
+
+        This is the first step of photo alignment. It detects keypoints
+        in each image and finds matching features between image pairs.
+
+        Args:
+            downscale: Accuracy (0=Highest, 1=High, 2=Medium, 4=Low, 8=Lowest).
+            generic_preselection: Enable generic image pair preselection.
+            reference_preselection: Enable reference-based preselection.
+            keypoint_limit: Maximum keypoints per photo.
+            tiepoint_limit: Maximum tie points per photo.
+            filter_stationary_points: Filter stationary points across images.
+            guided_matching: Enable guided image matching.
+            reset_matches: Reset existing matches before matching.
+
+        Returns:
+            Matching results with tie point count.
+        """
+        chunk = get_chunk()
+        if not chunk.cameras:
+            raise RuntimeError("No cameras in chunk. Add photos first.")
+
+        cb = make_progress_callback(ctx, "Matching photos") if ctx else make_tracking_callback("Matching photos")
+        await run_in_thread(
+            chunk.matchPhotos,
+            downscale=downscale,
+            generic_preselection=generic_preselection,
+            reference_preselection=reference_preselection,
+            keypoint_limit=keypoint_limit,
+            tiepoint_limit=tiepoint_limit,
+            filter_stationary_points=filter_stationary_points,
+            guided_matching=guided_matching,
+            reset_matches=reset_matches,
+            progress=cb,
+        )
+
+        tp = chunk.tie_points
+        tp_count = len(tp.points) if tp and tp.points else 0
+        return {
+            "cameras": len(chunk.cameras),
+            "tie_points": tp_count,
+        }
+
+    @mcp.tool()
+    async def align_cameras(
+        adaptive_fitting: bool = False,
+        reset_alignment: bool = False,
+        min_image: int = 2,
+        ctx: Context = None,
+    ) -> dict:
+        """Align cameras using matched features.
+
+        Estimates camera positions and orientations based on feature matches.
+        Run match_photos first.
+
+        Args:
+            adaptive_fitting: Enable adaptive fitting of distortion coefficients.
+            reset_alignment: Reset current alignment before processing.
+            min_image: Minimum number of point projections.
+
+        Returns:
+            Alignment results with aligned/total camera counts.
+        """
+        chunk = get_chunk()
+        require_tie_points(chunk)
+
+        cb = make_progress_callback(ctx, "Aligning cameras") if ctx else make_tracking_callback("Aligning cameras")
+        await run_in_thread(
+            chunk.alignCameras,
+            adaptive_fitting=adaptive_fitting,
+            reset_alignment=reset_alignment,
+            min_image=min_image,
+            progress=cb,
+        )
+
+        aligned = sum(1 for c in chunk.cameras if c.transform is not None)
+        return {
+            "aligned": aligned,
+            "total": len(chunk.cameras),
+            "alignment_rate": f"{aligned/len(chunk.cameras):.1%}" if chunk.cameras else "0%",
+        }
+
+    @mcp.tool()
+    async def optimize_cameras(
+        fit_f: bool = True,
+        fit_cx: bool = True,
+        fit_cy: bool = True,
+        fit_k1: bool = True,
+        fit_k2: bool = True,
+        fit_k3: bool = True,
+        fit_k4: bool = False,
+        fit_p1: bool = True,
+        fit_p2: bool = True,
+        fit_b1: bool = False,
+        fit_b2: bool = False,
+        adaptive_fitting: bool = False,
+        tiepoint_covariance: bool = False,
+        ctx: Context = None,
+    ) -> dict:
+        """Optimize camera calibration parameters.
+
+        Refines camera positions and lens distortion parameters to minimize
+        reprojection errors. Run after align_cameras.
+
+        Args:
+            fit_f: Optimize focal length.
+            fit_cx: Optimize X principal point.
+            fit_cy: Optimize Y principal point.
+            fit_k1-k4: Optimize radial distortion coefficients.
+            fit_p1-p2: Optimize tangential distortion coefficients.
+            fit_b1-b2: Optimize aspect ratio and skew.
+            adaptive_fitting: Enable adaptive coefficient fitting.
+            tiepoint_covariance: Estimate tie point covariance matrices.
+
+        Returns:
+            Optimization results.
+        """
+        chunk = get_chunk()
+        require_tie_points(chunk)
+
+        cb = make_progress_callback(ctx, "Optimizing cameras") if ctx else make_tracking_callback("Optimizing cameras")
+        await run_in_thread(
+            chunk.optimizeCameras,
+            fit_f=fit_f,
+            fit_cx=fit_cx,
+            fit_cy=fit_cy,
+            fit_k1=fit_k1,
+            fit_k2=fit_k2,
+            fit_k3=fit_k3,
+            fit_k4=fit_k4,
+            fit_p1=fit_p1,
+            fit_p2=fit_p2,
+            fit_b1=fit_b1,
+            fit_b2=fit_b2,
+            adaptive_fitting=adaptive_fitting,
+            tiepoint_covariance=tiepoint_covariance,
+            progress=cb,
+        )
+
+        return {"status": "optimization_complete"}
+
+    @mcp.tool()
+    async def filter_tie_points(
+        criterion: str = "ReprojectionError",
+        threshold: float = 0.3,
+        ctx: Context = None,
+    ) -> dict:
+        """Filter (remove) tie points based on quality criteria.
+
+        Run this BEFORE optimize_cameras. Follow the USGS workflow order:
+        1. filter_tie_points(criterion="ReconstructionUncertainty", threshold=10)
+           then optimize_cameras()
+        2. filter_tie_points(criterion="ProjectionAccuracy", threshold=3)
+           then optimize_cameras()
+        3. filter_tie_points(criterion="ReprojectionError", threshold=0.3)
+           then optimize_cameras()
+        Repeat step 3 until <10 points are removed per iteration.
+
+        Args:
+            criterion: "ReprojectionError", "ReconstructionUncertainty",
+                       "ProjectionAccuracy", or "ImageCount".
+            threshold: Points above this value are removed.
+                       Typical values: ReprojectionError=0.3,
+                       ReconstructionUncertainty=10-15,
+                       ProjectionAccuracy=3-5, ImageCount=2.
+
+        Returns:
+            Number of points removed and remaining count.
+        """
+        import Metashape
+
+        chunk = get_chunk()
+        require_tie_points(chunk)
+
+        criterion_map = {
+            "reprojectionerror": Metashape.TiePoints.Filter.ReprojectionError,
+            "reconstructionuncertainty": Metashape.TiePoints.Filter.ReconstructionUncertainty,
+            "projectionaccuracy": Metashape.TiePoints.Filter.ProjectionAccuracy,
+            "imagecount": Metashape.TiePoints.Filter.ImageCount,
+        }
+        crit = criterion_map.get(criterion.lower())
+        if crit is None:
+            raise ValueError(
+                f"Unknown criterion: {criterion}. "
+                f"Use: ReprojectionError, ReconstructionUncertainty, "
+                f"ProjectionAccuracy, or ImageCount."
+            )
+
+        tp = chunk.tie_points
+        before = len(tp.points) if tp.points else 0
+
+        f = Metashape.TiePoints.Filter()
+        f.init(chunk, criterion=crit)
+        f.selectPoints(threshold)
+
+        # Count selected, then remove
+        selected = sum(1 for p in tp.points if p.selected)
+        tp.removeSelectedPoints()
+
+        after = len(tp.points) if tp.points else 0
+        return {
+            "criterion": criterion,
+            "threshold": threshold,
+            "removed": selected,
+            "remaining": after,
+        }
+
+    @mcp.tool()
+    def reset_camera_alignment() -> dict:
+        """Clear all camera alignment data from the active chunk.
+
+        This removes camera positions and tie points. Use with caution.
+
+        Returns:
+            Confirmation of reset.
+        """
+        chunk = get_chunk()
+        for cam in chunk.cameras:
+            cam.transform = None
+        return {
+            "status": "alignment_reset",
+            "cameras_reset": len(chunk.cameras),
+        }
+
+    @mcp.tool()
+    def get_alignment_stats() -> dict:
+        """Return detailed alignment quality metrics for the active chunk.
+
+        Returns:
+            Dict with aligned/total cameras, alignment rate, enabled count,
+            valid tie point count, and number of sensors.
+        """
+        chunk = get_chunk()
+        require_tie_points(chunk)
+
+        aligned = sum(1 for c in chunk.cameras if c.transform is not None)
+        total = len(chunk.cameras)
+        enabled = sum(1 for c in chunk.cameras if c.enabled)
+        tp = chunk.tie_points
+        valid_points = 0
+        if tp and tp.points:
+            valid_points = sum(1 for p in tp.points if p.valid)
+
+        return {
+            "aligned": aligned,
+            "total": total,
+            "alignment_rate": f"{aligned / total:.1%}" if total else "0%",
+            "enabled_cameras": enabled,
+            "tie_point_count_valid": valid_points,
+            "sensors": len(chunk.sensors),
+        }
