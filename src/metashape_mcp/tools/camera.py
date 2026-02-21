@@ -69,6 +69,8 @@ def register(mcp) -> None:
         pixel_size: float | None = None,
         label_pattern: str | None = None,
         fixed_calibration: bool = False,
+        axes: str | None = None,
+        rolling_shutter: str | None = None,
     ) -> dict:
         """Set camera sensor type and calibration for cameras in the chunk.
 
@@ -77,8 +79,9 @@ def register(mcp) -> None:
         sensor type BEFORE matching/aligning — wrong type = failed alignment.
 
         Common setups:
-        - Drone (DJI): sensor_type="frame" (default, usually auto-detected)
-        - Fisheye (Nikon Z9 + 11mm): sensor_type="fisheye_equidistant", focal_length=11
+        - Drone (DJI): sensor_type="frame", axes="aerial" (default)
+        - Fisheye (Nikon Z9 + 11mm): sensor_type="fisheye_equidistant",
+          focal_length=11, axes="terrestrial", rolling_shutter="full"
         - GoPro/action cam: sensor_type="fisheye_equidistant"
 
         Args:
@@ -92,6 +95,13 @@ def register(mcp) -> None:
             fixed_calibration: Lock calibration so it won't be adjusted
                              during alignment. Use when you have a known
                              calibration from an external source.
+            axes: Camera orientation: "aerial" (Z backward, Y up — drones)
+                  or "terrestrial" (Z forward, Y down — ground/vehicle).
+                  If omitted, keeps current setting.
+            rolling_shutter: Rolling shutter compensation mode:
+                            "disabled", "regularized", or "full".
+                            Use "full" for vehicle-mounted cameras.
+                            If omitted, keeps current setting.
 
         Returns:
             Number of sensors modified and their settings.
@@ -117,6 +127,34 @@ def register(mcp) -> None:
                 f"spherical, cylindrical, rpc."
             )
 
+        axes_map = {
+            "aerial": Metashape.Sensor.Axes.Aerial,
+            "terrestrial": Metashape.Sensor.Axes.Terrestrial,
+        }
+        axes_val = None
+        if axes is not None:
+            axes_val = axes_map.get(axes.lower())
+            if axes_val is None:
+                raise ValueError(
+                    f"Unknown axes: {axes}. Use: aerial, terrestrial."
+                )
+
+        shutter_map = {
+            "disabled": Metashape.Shutter.Model.Disabled,
+            "none": Metashape.Shutter.Model.Disabled,
+            "regularized": Metashape.Shutter.Model.Regularized,
+            "partial": Metashape.Shutter.Model.Regularized,
+            "full": Metashape.Shutter.Model.Full,
+        }
+        shutter_val = None
+        if rolling_shutter is not None:
+            shutter_val = shutter_map.get(rolling_shutter.lower())
+            if shutter_val is None:
+                raise ValueError(
+                    f"Unknown rolling_shutter: {rolling_shutter}. "
+                    f"Use: disabled, regularized, full."
+                )
+
         # Find sensors to modify
         sensors = set()
         for cam in chunk.cameras:
@@ -135,12 +173,18 @@ def register(mcp) -> None:
                 sensor.pixel_size = Metashape.Vector([pixel_size, pixel_size])
             if focal_length is not None:
                 sensor.focal_length = focal_length
+            if axes_val is not None:
+                sensor.axes = axes_val
+            if shutter_val is not None:
+                sensor.rolling_shutter = shutter_val
             sensor.fixed = fixed_calibration
 
         return {
             "sensors_modified": len(sensors),
             "sensor_type": sensor_type,
             "focal_length_mm": focal_length,
+            "axes": axes,
+            "rolling_shutter": rolling_shutter,
             "fixed_calibration": fixed_calibration,
             "labels": [s.label for s in sensors],
         }
@@ -263,9 +307,12 @@ def register(mcp) -> None:
             info = {
                 "label": sensor.label,
                 "type": str(sensor.type).split(".")[-1],
+                "axes": str(sensor.axes).split(".")[-1],
+                "rolling_shutter": str(sensor.rolling_shutter).split(".")[-1],
                 "width": sensor.width,
                 "height": sensor.height,
                 "pixel_size": list(sensor.pixel_size),
+                "focal_length_mm": sensor.focal_length,
                 "fixed": sensor.fixed,
                 "camera_count": len([
                     c for c in chunk.cameras if c.sensor == sensor
