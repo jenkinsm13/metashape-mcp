@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "metashape": {
+      "type": "stdio",
+      "command": "python",
+      "args": ["-m", "metashape_mcp.proxy"],
+      "cwd": "C:\\Users\\micha\\Downloads\\metashape-mcp\\src"
+    }
+  }
+}
