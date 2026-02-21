@@ -187,7 +187,7 @@ The stdio proxy bridges Claude Code to the Metashape HTTP server without timeout
 pip install "fastmcp>=2.0.0"
 ```
 
-Configure Claude Code to use the proxy in `.mcp.json`:
+Configure Claude Code to use the proxy in `.mcp.json` (update the path to where you cloned the repo):
 
 ```json
 {
@@ -195,7 +195,7 @@ Configure Claude Code to use the proxy in `.mcp.json`:
     "metashape": {
       "type": "stdio",
       "command": "python",
-      "args": ["-m", "metashape_mcp.proxy"]
+      "args": ["C:/path/to/metashape-mcp/src/metashape_mcp/proxy.py"]
     }
   }
 }
