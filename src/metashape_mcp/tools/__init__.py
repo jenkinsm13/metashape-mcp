@@ -16,6 +16,7 @@ from metashape_mcp.tools import (
     network,
     photos,
     project,
+    scripting,
     survey,
     texture,
     viewport,
@@ -36,6 +37,7 @@ _MODULES = [
     coordinate,
     network,
     viewport,
+    scripting,
 ]
 
 

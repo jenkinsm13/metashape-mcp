@@ -9,7 +9,7 @@ MCP server for Agisoft Metashape Professional 2.3+ that runs embedded inside Met
 ```
 src/metashape_mcp/
 ├── server.py           # FastMCP entry point, HTTP transport
-├── tools/              # 13 modules, 63 tools total
+├── tools/              # 15 modules, 64+ tools total
 │   ├── project.py      # open/save/create project, chunk management, GPU config
 │   ├── photos.py       # add photos, analyze quality, import video
 │   ├── camera.py       # enable/disable cameras, sensor config, masks
@@ -22,7 +22,9 @@ src/metashape_mcp/
 │   ├── import_data.py  # import models, point clouds, reference
 │   ├── markers.py      # detect/add markers, scalebars, GCPs
 │   ├── coordinate.py   # CRS, region, transform
-│   └── network.py      # network processing server interaction
+│   ├── network.py      # network processing server interaction
+│   ├── viewport.py     # viewport camera, screenshots
+│   └── scripting.py    # arbitrary Python code execution (YOLO, batch, custom)
 ├── resources/          # 10 read-only state resources
 ├── prompts/            # workflow and troubleshooting templates
 └── utils/

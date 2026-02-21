@@ -50,6 +50,7 @@ This MCP server runs embedded inside Metashape's Python environment and exposes 
 | **coordinate** | 3 | Set CRS (EPSG codes), define bounding region, update coordinate transform |
 | **network** | 5 | Network processing: batch submit, monitor, abort, configure server |
 | **viewport** | 2 | Control 3D viewport camera, capture screenshots |
+| **scripting** | 1 | Execute arbitrary Python code inside Metashape's environment |
 
 ### Resources (Real-Time Project Inspection)
 
@@ -234,6 +235,27 @@ Set up GCPs for my survey project:
 5. Build orthomosaic at 2cm GSD
 ```
 
+### Custom Python Scripts (YOLO masking, batch workflows, etc.)
+
+The `execute_python` tool gives the AI full access to Metashape's Python 3.12 runtime. It can import any package installed in Metashape's environment and run arbitrary code:
+
+```
+Run a YOLO model to generate masks for all photos:
+- Use ultralytics to detect objects in each camera image
+- Generate binary masks and apply them in Metashape
+- Then rebuild the dense point cloud without the masked regions
+```
+
+```
+Write a custom batch script that:
+1. Opens every .psx file in C:/projects/batch/
+2. Rebuilds the mesh at medium quality
+3. Exports each as FBX to C:/exports/
+4. Saves and closes each project
+```
+
+The AI has access to `Metashape`, `app`, `doc`, and `chunk` variables pre-loaded, plus any library you've pip-installed into Metashape's Python (numpy, opencv-python, ultralytics, pillow, etc.).
+
 ### Inspect Project State
 
 ```
@@ -248,7 +270,7 @@ What processing steps are still needed?
 src/metashape_mcp/
 ├── server.py           # FastMCP entry point, Streamable HTTP transport
 ├── proxy.py            # Stdio-to-HTTP proxy for Claude Code
-├── tools/              # 14 modules organized by photogrammetry stage
+├── tools/              # 15 modules organized by photogrammetry stage
 │   ├── project.py      # Project management and GPU configuration
 │   ├── photos.py       # Photo import and quality analysis
 │   ├── camera.py       # Camera/sensor configuration and masking
@@ -262,7 +284,8 @@ src/metashape_mcp/
 │   ├── markers.py      # Coded markers, GCPs, scalebars
 │   ├── coordinate.py   # CRS/EPSG, bounding region, transforms
 │   ├── network.py      # Network processing server interaction
-│   └── viewport.py     # 3D viewport control and screenshots
+│   ├── viewport.py     # 3D viewport control and screenshots
+│   └── scripting.py    # Arbitrary Python code execution (YOLO, batch, custom)
 ├── resources/          # 10 read-only project state resources
 ├── prompts/            # Guided workflow and troubleshooting templates
 └── utils/
@@ -317,6 +340,10 @@ Yes. The markers tools support detecting coded markers, manually placing GCPs, i
 ### How does this handle long-running operations?
 
 Photogrammetry operations like dense point cloud generation and mesh building can take minutes to hours depending on dataset size. The included stdio proxy (`proxy.py`) bridges the AI client to the HTTP server without timeout limits, ensuring operations complete fully. Progress percentage is reported back to the AI in real time.
+
+### Can the AI run custom Python scripts in Metashape?
+
+Yes. The `execute_python` tool gives the AI full access to Metashape's Python 3.12 runtime. It can write and run arbitrary code — import third-party libraries like YOLO/ultralytics, OpenCV, NumPy, or Pillow, script custom batch workflows across multiple projects, generate masks from ML models, do image processing, or anything else Python can do. The AI has pre-loaded access to the Metashape module, the active document, and the active chunk.
 
 ### What version of Metashape do I need?
 
