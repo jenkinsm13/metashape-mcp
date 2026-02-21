@@ -30,6 +30,7 @@ This MCP server runs embedded inside Metashape's Python environment and exposes 
 - Stdio proxy for Claude Code with no timeout limits on long operations
 - Progress reporting for dense cloud, mesh, and texture generation
 - Full coordinate reference system (CRS/EPSG) support
+- **Non-blocking UI** — the Metashape GUI stays fully interactive while the AI processes in the background
 
 ### Tool Categories
 
@@ -111,7 +112,27 @@ Metashape ships its own embedded Python 3.12. You must install dependencies into
 
 ### 3. Start the MCP server inside Metashape
 
-**Option A: From Metashape's Python Console (Tools > Console)**
+A ready-to-use startup script is included at [`scripts/start_mcp_server.py`](scripts/start_mcp_server.py).
+
+**Option A: Auto-start with Metashape (recommended)**
+
+1. Edit `scripts/start_mcp_server.py` and set `METASHAPE_MCP_SRC` to the path where you cloned this repo's `src/` folder
+2. Copy the script to Metashape's auto-run scripts folder:
+   - **Windows:** `C:\Users\<user>\AppData\Local\Agisoft\Metashape Pro\scripts\`
+   - **macOS:** `~/Library/Application Support/Agisoft/Metashape Pro/scripts/`
+   - **Linux:** `~/.local/share/Agisoft/Metashape Pro/scripts/`
+3. Restart Metashape — the MCP server starts automatically
+
+**Option B: Run manually via Tools > Run Script**
+
+1. Open Metashape
+2. Go to **Tools > Run Script**
+3. Select `scripts/start_mcp_server.py` from this repository
+4. The server starts in the background
+
+**Option C: From Metashape's Python Console**
+
+Open the console (**View > Console**) and run:
 
 ```python
 import sys
@@ -122,22 +143,7 @@ start_background()
 # Server running on http://127.0.0.1:8765/mcp
 ```
 
-**Option B: As a startup script**
-
-Create a file called `start_mcp.py`:
-
-```python
-import sys
-sys.path.insert(0, r"C:\path\to\metashape-mcp\src")
-from metashape_mcp.server import start_background
-start_background()
-```
-
-Run via Metashape menu (**Tools > Run Script**) or from the command line:
-
-```bash
-metashape.exe -r start_mcp.py
-```
+> **Important:** After starting the server, open the Console panel (**View > Console**) to monitor MCP operations. You'll see progress updates, tool calls, and status messages as the AI works. The **Metashape UI is not blocked** — you can continue using menus, viewports, and tools while the AI processes in the background. This lets you visually inspect results in real time as the AI builds your photogrammetry products.
 
 ### 4. Connect your AI client
 
