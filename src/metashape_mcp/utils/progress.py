@@ -21,8 +21,12 @@ _operation_state = {
     "operation": "",
     "progress": 0.0,
     "started_at": 0.0,
+    "last_callback_at": 0.0,
 }
 _state_lock = threading.Lock()
+
+# If no progress callback fires within this window, assume the operation died
+_STALE_TIMEOUT = 10.0
 
 
 def request_cancel():
@@ -41,11 +45,25 @@ def clear_cancel():
 
 
 def get_operation_state() -> dict:
-    """Return a snapshot of the current operation state."""
+    """Return a snapshot of the current operation state.
+
+    Auto-clears stale state if no progress callback has fired within
+    _STALE_TIMEOUT seconds — handles the case where Metashape dies
+    mid-operation and the finally block in run_in_thread never fires.
+    """
+    now = time.time()
     with _state_lock:
+        if (
+            _operation_state["active"]
+            and _operation_state["last_callback_at"] > 0
+            and now - _operation_state["last_callback_at"] > _STALE_TIMEOUT
+        ):
+            _operation_state["active"] = False
+            _operation_state["progress"] = 0.0
+            _operation_state["operation"] = ""
         state = dict(_operation_state)
     if state["active"] and state["started_at"]:
-        state["elapsed_seconds"] = round(time.time() - state["started_at"], 1)
+        state["elapsed_seconds"] = round(now - state["started_at"], 1)
     return state
 
 
@@ -55,6 +73,7 @@ def _set_operation(operation: str, progress: float = 0.0, active: bool = True):
         _operation_state["active"] = active
         _operation_state["operation"] = operation
         _operation_state["progress"] = progress
+        _operation_state["last_callback_at"] = time.time()
         if active and progress == 0.0:
             _operation_state["started_at"] = time.time()
 
