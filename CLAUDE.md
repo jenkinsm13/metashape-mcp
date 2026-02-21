@@ -2,7 +2,7 @@
 
 ## Overview
 
-MCP server for Agisoft Metashape Professional 2.3+ that runs embedded inside Metashape's Python 3.12 environment. Exposes the complete photogrammetry pipeline as 63 MCP tools, 10 resources, and 6 prompts over Streamable HTTP transport.
+MCP server for Agisoft Metashape Professional 2.3+ that runs embedded inside Metashape's Python 3.12 environment. Exposes the complete photogrammetry pipeline as 64+ MCP tools, 10 resources, and 6 prompts over Streamable HTTP transport.
 
 ## Architecture
 

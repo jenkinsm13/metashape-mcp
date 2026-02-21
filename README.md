@@ -22,7 +22,7 @@ This MCP server runs embedded inside Metashape's Python environment and exposes 
 
 ## Features
 
-- **53+ tools** covering every stage of the photogrammetry pipeline
+- **64+ tools** covering every stage of the photogrammetry pipeline
 - **10 resources** for real-time project state inspection
 - **5 prompts** for guided workflows (aerial survey, close-range, diagnostics)
 - Runs natively inside Metashape's embedded Python 3.12
