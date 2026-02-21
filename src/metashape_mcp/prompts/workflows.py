@@ -1,5 +1,19 @@
 """Workflow prompt templates for common photogrammetry pipelines."""
 
+AGENT_RULES = """**MANDATORY AGENT RULES — READ BEFORE PROCEEDING:**
+
+1. **NEVER write a script that batches these tool calls.** You are an AI agent.
+   Call each tool INDIVIDUALLY as a separate agent action. Check the result.
+   Reason about it. Then call the next tool. Writing a Python script that
+   chains MCP calls defeats the entire purpose of this server.
+2. **ALWAYS keep_keypoints=True** when calling match_photos (it is the default).
+3. **Save after every major step** — call save_project() between operations.
+4. **GPU/CPU rule**: set_gpu_config(cpu_enable=True) BEFORE alignment only.
+   set_gpu_config(cpu_enable=False) BEFORE depth maps, meshing, texturing.
+5. **Tool calls block until done.** No timeouts. No polling. Wait for results.
+
+"""
+
 
 def register(mcp) -> None:
     """Register workflow prompts."""
@@ -25,7 +39,7 @@ def register(mcp) -> None:
         downscale_map = {"ultra": 1, "high": 2, "medium": 4, "low": 8}
         ds = downscale_map.get(quality, 4)
 
-        return f"""Process this aerial/drone survey step by step:
+        return AGENT_RULES + f"""Process this aerial/drone survey step by step:
 
 1. **Create Project**: create_project("{project_path}")
 2. **Add Photos**: add_photos(["{photo_folder}"])
@@ -73,7 +87,7 @@ Use resources to monitor processing state between steps.
         downscale_map = {"ultra": 1, "high": 2, "medium": 4, "low": 8}
         ds = downscale_map.get(quality, 4)
 
-        return f"""Process this close-range/object reconstruction step by step:
+        return AGENT_RULES + f"""Process this close-range/object reconstruction step by step:
 
 1. **Create Project**: create_project("{project_path}")
 2. **Add Photos**: add_photos(["{photo_folder}"])
@@ -111,7 +125,7 @@ For objects, use "arbitrary" surface type (not "height_field").
             output_folder: Directory for exported files.
             formats: "all" or comma-separated list of products.
         """
-        return f"""Export all available processing results:
+        return AGENT_RULES + f"""Export all available processing results:
 
 First, check what's available using metashape://project/chunks resource.
 
@@ -168,7 +182,7 @@ Requested formats: {formats}
             gps_step = f"""
 4. **Set CRS**: set_crs(epsg_code={crs_epsg}) — GPS will be loaded from EXIF"""
 
-        return f"""Process this road corridor capture for driving simulator use.
+        return AGENT_RULES + f"""Process this road corridor capture for driving simulator use.
 
 **YOU ARE AN ITERATIVE OPERATOR, NOT A SCRIPT RUNNER.**
 Do NOT blindly execute steps. After every operation, CHECK the results

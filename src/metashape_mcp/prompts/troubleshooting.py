@@ -1,5 +1,7 @@
 """Diagnostic and troubleshooting prompt templates."""
 
+from metashape_mcp.prompts.workflows import AGENT_RULES
+
 
 def register(mcp) -> None:
     """Register troubleshooting prompts."""
@@ -11,7 +13,7 @@ def register(mcp) -> None:
         Generates a diagnostic prompt that checks alignment status
         and suggests improvements.
         """
-        return """Diagnose the current alignment quality:
+        return AGENT_RULES + """Diagnose the current alignment quality:
 
 1. **Check Project State**: Read metashape://project/chunks to see overall status
 2. **Check Cameras**: Read metashape://chunk/{active_chunk}/cameras
@@ -60,7 +62,7 @@ Provide a summary of findings and recommended actions.
             photo_count: Number of photos in the dataset.
             ram_gb: Available RAM in gigabytes.
         """
-        return f"""Recommend optimal processing settings for this dataset:
+        return AGENT_RULES + f"""Recommend optimal processing settings for this dataset:
 
 **Dataset Info:**
 - Photos: {photo_count}

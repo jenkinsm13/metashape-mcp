@@ -8,6 +8,28 @@ from metashape_mcp.utils.bridge import get_chunk, get_document
 def register(mcp) -> None:
     """Register project info resources."""
 
+    @mcp.resource("metashape://agent/rules")
+    def agent_rules() -> str:
+        """Mandatory rules for AI agents using this MCP server. Read this first."""
+        return (
+            "MANDATORY AGENT RULES FOR METASHAPE MCP:\n\n"
+            "1. NEVER write a script that batches multiple MCP tool calls. "
+            "You are an AI agent — call each tool INDIVIDUALLY as a separate "
+            "agent action. Check the result. Reason about it. Then call the "
+            "next tool. Writing a Python script that chains MCP calls defeats "
+            "the entire purpose of this server.\n\n"
+            "2. ALWAYS keep_keypoints=True when calling match_photos. Without "
+            "it, incremental batch alignment fails (keypoints are discarded "
+            "after matching, preventing cross-batch matching).\n\n"
+            "3. Save after every major step — call save_project() between "
+            "operations.\n\n"
+            "4. GPU/CPU rule: set_gpu_config(cpu_enable=True) BEFORE alignment "
+            "only. set_gpu_config(cpu_enable=False) BEFORE depth maps, meshing, "
+            "texturing. CPU slows down GPU operations.\n\n"
+            "5. Tool calls block until the Metashape operation completes. "
+            "Never set timeouts. Never poll. Operations can take hours or days."
+        )
+
     @mcp.resource("metashape://project/info")
     def project_info() -> dict:
         """Current project information: path, chunk count, status."""
