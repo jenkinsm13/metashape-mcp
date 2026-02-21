@@ -5,7 +5,7 @@
 [![MCP](https://img.shields.io/badge/MCP-Model_Context_Protocol-purple.svg)](https://modelcontextprotocol.io/)
 [![Metashape 2.3+](https://img.shields.io/badge/Metashape-2.3+-orange.svg)](https://www.agisoft.com/)
 
-A comprehensive [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server that brings **AI-powered automation to Agisoft Metashape Professional**. Control the full photogrammetry pipeline — from photo alignment to 3D model export — using natural language through Claude, Claude Code, or any MCP-compatible AI assistant.
+A comprehensive [Model Context Protocol](https://modelcontextprotocol.io/) (MCP) server that brings **AI-powered automation to Agisoft Metashape Professional**. 106 tools, 10 resources, and 6 prompts covering the full photogrammetry pipeline — from photo alignment to 3D model export — using natural language through Claude, Claude Code, or any MCP-compatible AI assistant.
 
 > **Use AI to process drone surveys, build 3D models, generate DEMs, create orthomosaics, and export production-ready deliverables — all through conversation.**
 
@@ -22,9 +22,9 @@ This MCP server runs embedded inside Metashape's Python environment and exposes 
 
 ## Features
 
-- **64+ tools** covering every stage of the photogrammetry pipeline
+- **106 tools** across 15 modules covering every stage of the photogrammetry pipeline
 - **10 resources** for real-time project state inspection
-- **5 prompts** for guided workflows (aerial survey, close-range, diagnostics)
+- **6 prompts** for guided workflows (aerial survey, close-range, diagnostics)
 - Runs natively inside Metashape's embedded Python 3.12
 - Streamable HTTP transport on `http://127.0.0.1:8765`
 - Stdio proxy for Claude Code with no timeout limits on long operations
@@ -37,20 +37,20 @@ This MCP server runs embedded inside Metashape's Python environment and exposes 
 
 | Module | Tools | Capabilities |
 |--------|-------|-------------|
-| **project** | 6 | Create, open, save projects; manage chunks; configure GPU/CPU |
-| **photos** | 4 | Import photos and video frames, analyze image quality |
-| **camera** | 3 | Enable/disable cameras, configure sensors, apply masks |
-| **alignment** | 4 | Structure-from-Motion (SfM): match photos, align cameras, optimize, filter tie points |
-| **dense** | 4 | Multi-View Stereo (MVS): depth maps, dense point cloud, ground classification |
-| **mesh** | 5 | 3D mesh generation, decimation, smoothing, hole closing, mesh refinement |
-| **texture** | 4 | UV mapping, texture atlas generation, color calibration |
-| **survey** | 5 | DEM generation, orthomosaic creation, tiled models, contour lines, panoramas |
-| **export** | 8 | Export to OBJ, PLY, FBX, LAS/LAZ, GeoTIFF, Cesium 3D Tiles, and more |
-| **import** | 5 | Import models, point clouds, reference data, camera calibrations, shapes |
-| **markers** | 5 | Detect coded markers, add GCPs, create scalebars, import/export reference |
-| **coordinate** | 3 | Set CRS (EPSG codes), define bounding region, update coordinate transform |
-| **network** | 5 | Network processing: batch submit, monitor, abort, configure server |
-| **viewport** | 2 | Control 3D viewport camera, capture screenshots |
+| **project** | 12 | Create, open, save projects; manage/merge/align/duplicate chunks; GPU/CPU config; processing status |
+| **photos** | 5 | Import photos and video frames, analyze image quality, remove/rename cameras |
+| **camera** | 8 | Enable/disable/select cameras, configure sensors, import/clear masks, camera metadata and reference |
+| **alignment** | 6 | Structure-from-Motion (SfM): match photos, align cameras, optimize, filter tie points, reset alignment |
+| **dense** | 12 | Multi-View Stereo (MVS): depth maps, dense point cloud, ground classification, filtering, smoothing, colorization |
+| **mesh** | 8 | 3D mesh generation, decimation, smoothing, hole closing, mesh refinement, cleaning, colorization |
+| **texture** | 5 | UV mapping, texture atlas generation, color calibration, texture removal |
+| **survey** | 8 | DEM generation, orthomosaic creation, tiled models, contour lines, panoramas, raster export |
+| **export** | 10 | Export to OBJ, PLY, FBX, LAS/LAZ, GeoTIFF, Cesium 3D Tiles, cameras, reference, report, and more |
+| **import** | 6 | Import models, point clouds, reference data, camera calibrations, shapes, masks |
+| **markers** | 9 | Detect coded markers, add/remove GCPs, create/remove scalebars, set reference, import/export markers |
+| **coordinate** | 8 | Set CRS (EPSG codes), define bounding region, update coordinate transform, reprojection, localization |
+| **network** | 5 | Network processing: connect, batch submit, list, monitor, abort |
+| **viewport** | 3 | Capture viewport screenshots, read console output, auto-save project |
 | **scripting** | 1 | Execute arbitrary Python code inside Metashape's environment |
 
 ### Resources (Real-Time Project Inspection)
@@ -81,8 +81,7 @@ This MCP server runs embedded inside Metashape's Python environment and exposes 
 ## Prerequisites
 
 - **Agisoft Metashape Professional 2.3+** (with Python 3.12 scripting)
-- **MCP Python SDK**: `mcp[cli]>=1.2.0`
-- **FastMCP**: `fastmcp>=2.0.0` — required for the stdio proxy that enables full functionality
+- **MCP Python SDK** and **FastMCP** — auto-installed on first run by the startup scripts
 
 ## Installation
 
@@ -92,27 +91,9 @@ This MCP server runs embedded inside Metashape's Python environment and exposes 
 git clone https://github.com/jenkinsm13/metashape-mcp.git
 ```
 
-### 2. Install dependencies in Metashape's Python environment
+### 2. Start the MCP server inside Metashape
 
-Metashape ships its own embedded Python 3.12. You must install dependencies into **that** environment, not your system Python:
-
-```bash
-# Windows:
-"C:\Program Files\Agisoft\Metashape Pro\python\python.exe" -m pip install "mcp[cli]>=1.2.0" "fastmcp>=2.0.0"
-
-# macOS:
-/Applications/MetashapePro.app/Contents/Frameworks/Python.framework/Versions/3.12/bin/pip3 install "mcp[cli]>=1.2.0" "fastmcp>=2.0.0"
-
-# Linux:
-/opt/metashape-pro/python/bin/pip3 install "mcp[cli]>=1.2.0" "fastmcp>=2.0.0"
-```
-
-> **Tip:** If Metashape's Python doesn't have pip, bootstrap it first:
-> ```bash
-> "C:\Program Files\Agisoft\Metashape Pro\python\python.exe" -m ensurepip
-> ```
-
-### 3. Start the MCP server inside Metashape
+> **Dependencies are installed automatically.** The startup scripts detect missing packages (`mcp`, `fastmcp`) and install them into Metashape's Python on first run. No manual pip commands needed.
 
 A ready-to-use startup script is included at [`scripts/start_mcp_server.py`](scripts/start_mcp_server.py).
 
@@ -166,7 +147,7 @@ The server runs in the foreground (blocks until Ctrl+C). All processing, export,
 
 > **Use cases for headless mode:** Remote processing servers, cloud VMs, Docker containers, CI/CD pipelines, automated batch processing, and any environment where you want the AI to drive Metashape without a graphical desktop.
 
-### 4. Connect your AI client
+### 3. Connect your AI client
 
 #### Claude Desktop
 
@@ -325,7 +306,7 @@ src/metashape_mcp/
 
 | Problem | Solution |
 |---------|----------|
-| **Server won't start** | Ensure `mcp[cli]` is installed in Metashape's Python, not system Python. Verify: `import mcp` in Metashape console. |
+| **Server won't start** | Dependencies are auto-installed on first run. If auto-install fails, install manually: `"C:\Program Files\Agisoft\Metashape Pro\python\python.exe" -m pip install "mcp[cli]>=1.2.0" "fastmcp>=2.0.0"` (see below for macOS/Linux paths). |
 | **Connection refused** | Start the server inside Metashape first, then configure your AI client. The server must be running before connecting. |
 | **Timeout on long operations** | Use the stdio proxy instead of direct HTTP. Dense cloud and mesh operations can take minutes to hours. |
 | **Import errors** | Ensure `sys.path.insert(0, "/path/to/metashape-mcp/src")` points to the correct location of this repository. |
