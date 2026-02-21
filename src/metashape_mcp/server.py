@@ -26,7 +26,7 @@ mcp = FastMCP(
         "operations (depth maps, point cloud, meshing, texturing), DISABLE CPU "
         "(set_gpu_config(cpu_enable=False)) — it slows things down when GPU is active."
     ),
-    stateless_http=True,
+    stateless_http=False,
     json_response=True,
     port=8765,
 )
