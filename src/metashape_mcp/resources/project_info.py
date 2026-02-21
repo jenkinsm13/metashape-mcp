@@ -26,7 +26,11 @@ def register(mcp) -> None:
             "4. GPU/CPU rule: set_gpu_config(cpu_enable=True) BEFORE alignment "
             "only. set_gpu_config(cpu_enable=False) BEFORE depth maps, meshing, "
             "texturing. CPU slows down GPU operations.\n\n"
-            "5. Tool calls block until the Metashape operation completes. "
+            "5. USGS tie point filtering thresholds: "
+            "ReconstructionUncertainty=10, ProjectionAccuracy=3, "
+            "ReprojectionError=0.3. NEVER remove more than 50%% of tie points "
+            "in one pass. The tool enforces this automatically.\n\n"
+            "6. Tool calls block until the Metashape operation completes. "
             "Never set timeouts. Never poll. Operations can take hours or days."
         )
 

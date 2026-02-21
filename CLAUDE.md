@@ -37,6 +37,7 @@ src/metashape_mcp/
 
 - **NEVER write pipeline scripts.** This is an MCP server for AI agents. Call each tool individually, check the result, reason about it, then call the next tool. NEVER batch MCP calls into a Python script — that defeats the entire purpose of agent-driven tool calling.
 - **ALWAYS `keep_keypoints=True`** when calling `match_photos`. This is the default in our tool (overriding Metashape's False default). Without it, incremental batch alignment fails.
+- **USGS tie point filtering**: RU=10, PA=3, RE=0.3. NEVER remove more than 50% of tie points in one pass — the tool auto-raises the threshold if >50% would be selected.
 - **No timeouts.** MCP tool calls block until the Metashape operation completes. Operations can take hours or days.
 
 ## Key Patterns

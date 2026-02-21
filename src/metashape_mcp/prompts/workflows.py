@@ -10,7 +10,9 @@ AGENT_RULES = """**MANDATORY AGENT RULES — READ BEFORE PROCEEDING:**
 3. **Save after every major step** — call save_project() between operations.
 4. **GPU/CPU rule**: set_gpu_config(cpu_enable=True) BEFORE alignment only.
    set_gpu_config(cpu_enable=False) BEFORE depth maps, meshing, texturing.
-5. **Tool calls block until done.** No timeouts. No polling. Wait for results.
+5. **USGS tie point filtering**: RU=10, PA=3, RE=0.3. NEVER remove more than
+   50% of tie points in one pass. The tool auto-raises the threshold if needed.
+6. **Tool calls block until done.** No timeouts. No polling. Wait for results.
 
 """
 

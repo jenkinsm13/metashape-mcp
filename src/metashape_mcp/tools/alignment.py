@@ -176,11 +176,12 @@ def register(mcp) -> None:
     async def filter_tie_points(
         criterion: str = "ReprojectionError",
         threshold: float = 0.3,
+        max_select_percent: float = 50.0,
         ctx: Context = None,
     ) -> dict:
         """Filter (remove) tie points based on quality criteria.
 
-        Run this BEFORE optimize_cameras. Follow the USGS workflow order:
+        USGS workflow — run BEFORE optimize_cameras, in this order:
         1. filter_tie_points(criterion="ReconstructionUncertainty", threshold=10)
            then optimize_cameras()
         2. filter_tie_points(criterion="ProjectionAccuracy", threshold=3)
@@ -189,16 +190,22 @@ def register(mcp) -> None:
            then optimize_cameras()
         Repeat step 3 until <10 points are removed per iteration.
 
+        NEVER remove more than 50% of tie points in one call. If the
+        threshold would select more than max_select_percent, the threshold
+        is automatically raised in 0.1 increments until under the limit.
+
         Args:
             criterion: "ReprojectionError", "ReconstructionUncertainty",
                        "ProjectionAccuracy", or "ImageCount".
             threshold: Points above this value are removed.
-                       Typical values: ReprojectionError=0.3,
-                       ReconstructionUncertainty=10-15,
-                       ProjectionAccuracy=3-5, ImageCount=2.
+                       USGS values: ReconstructionUncertainty=10,
+                       ProjectionAccuracy=3, ReprojectionError=0.3.
+            max_select_percent: Safety cap — never select more than this
+                       percentage of tie points (default 50%). Set to 100
+                       to disable the cap.
 
         Returns:
-            Number of points removed and remaining count.
+            Number of points removed, remaining count, and final threshold.
         """
         import Metashape
 
@@ -221,22 +228,37 @@ def register(mcp) -> None:
 
         tp = chunk.tie_points
         before = len(tp.points) if tp.points else 0
+        max_allowed = int(before * max_select_percent / 100.0)
+        actual_threshold = threshold
 
         f = Metashape.TiePoints.Filter()
         f.init(chunk, criterion=crit)
-        f.selectPoints(threshold)
-
-        # Count selected, then remove
+        f.selectPoints(actual_threshold)
         selected = sum(1 for p in tp.points if p.selected)
+
+        # Raise threshold in 0.1 increments until under the cap
+        while selected > max_allowed and actual_threshold < 1000:
+            actual_threshold = round(actual_threshold + 0.1, 1)
+            f.selectPoints(actual_threshold)
+            selected = sum(1 for p in tp.points if p.selected)
+
         tp.removeSelectedPoints()
 
         after = len(tp.points) if tp.points else 0
-        return {
+        result = {
             "criterion": criterion,
-            "threshold": threshold,
+            "threshold_requested": threshold,
+            "threshold_used": actual_threshold,
             "removed": selected,
             "remaining": after,
+            "percent_removed": f"{selected / before:.1%}" if before else "0%",
         }
+        if actual_threshold != threshold:
+            result["note"] = (
+                f"Threshold raised from {threshold} to {actual_threshold} "
+                f"to stay under {max_select_percent}% removal cap."
+            )
+        return result
 
     @mcp.tool()
     def reset_camera_alignment() -> dict:

@@ -34,7 +34,10 @@ mcp = FastMCP(
         "ONLY during alignment (match_photos, align_cameras). For ALL other "
         "operations (depth maps, meshing, texturing), DISABLE CPU "
         "(set_gpu_config(cpu_enable=False)) — CPU slows GPU operations.\n"
-        "4. Tool calls block until the Metashape operation completes. "
+        "4. USGS tie point filtering: RU=10, PA=3, RE=0.3. "
+        "NEVER remove more than 50% of tie points in one pass. "
+        "The filter_tie_points tool enforces this automatically.\n"
+        "5. Tool calls block until the Metashape operation completes. "
         "Operations can take hours or days. Never set timeouts. Never poll."
     ),
     stateless_http=True,
