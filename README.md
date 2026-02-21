@@ -31,6 +31,7 @@ This MCP server runs embedded inside Metashape's Python environment and exposes 
 - Progress reporting for dense cloud, mesh, and texture generation
 - Full coordinate reference system (CRS/EPSG) support
 - **Non-blocking UI** — the Metashape GUI stays fully interactive while the AI processes in the background
+- **Headless mode** — run without GUI on remote servers, VMs, or CI pipelines for automated processing
 
 ### Tool Categories
 
@@ -145,6 +146,25 @@ start_background()
 ```
 
 > **Important:** After starting the server, open the Console panel (**View > Console**) to monitor MCP operations. You'll see progress updates, tool calls, and status messages as the AI works. The **Metashape UI is not blocked** — you can continue using menus, viewports, and tools while the AI processes in the background. This lets you visually inspect results in real time as the AI builds your photogrammetry products.
+
+**Option D: Headless mode (no GUI — remote servers, VMs, CI pipelines)**
+
+For automated processing on machines without a display, run Metashape in headless/offscreen mode with [`scripts/start_mcp_headless.py`](scripts/start_mcp_headless.py):
+
+```bash
+# Windows:
+"C:\Program Files\Agisoft\Metashape Pro\metashape.exe" -platform offscreen -r start_mcp_headless.py
+
+# Linux:
+metashape -platform offscreen -r start_mcp_headless.py
+
+# macOS:
+/Applications/MetashapePro.app/Contents/MacOS/MetashapePro -platform offscreen -r start_mcp_headless.py
+```
+
+The server runs in the foreground (blocks until Ctrl+C). All processing, export, import, and scripting tools work normally. Viewport/screenshot tools are unavailable in headless mode since there's no display.
+
+> **Use cases for headless mode:** Remote processing servers, cloud VMs, Docker containers, CI/CD pipelines, automated batch processing, and any environment where you want the AI to drive Metashape without a graphical desktop.
 
 ### 4. Connect your AI client
 
@@ -341,6 +361,10 @@ Yes. The markers tools support detecting coded markers, manually placing GCPs, i
 
 Photogrammetry operations like dense point cloud generation and mesh building can take minutes to hours depending on dataset size. The included stdio proxy (`proxy.py`) bridges the AI client to the HTTP server without timeout limits, ensuring operations complete fully. Progress percentage is reported back to the AI in real time.
 
+### Can I run this without a GUI (headless mode)?
+
+Yes. metashape-mcp supports headless operation for remote servers, cloud VMs, Docker containers, and CI/CD pipelines. Run Metashape with `-platform offscreen` and the headless startup script. All photogrammetry processing, export, import, scripting, and network tools work normally in headless mode — only the viewport/screenshot tools require a display. This lets you set up fully automated AI-driven photogrammetry pipelines on machines without a graphical desktop.
+
 ### Can the AI run custom Python scripts in Metashape?
 
 Yes. The `execute_python` tool gives the AI full access to Metashape's Python 3.12 runtime. It can write and run arbitrary code — import third-party libraries like YOLO/ultralytics, OpenCV, NumPy, or Pillow, script custom batch workflows across multiple projects, generate masks from ML models, do image processing, or anything else Python can do. The AI has pre-loaded access to the Metashape module, the active document, and the active chunk.
@@ -351,7 +375,7 @@ Agisoft Metashape Professional 2.3 or newer is required. The server uses Metasha
 
 ## Keywords
 
-Agisoft Metashape, MCP server, Model Context Protocol, photogrammetry automation, AI photogrammetry, drone mapping, aerial survey, 3D reconstruction, point cloud processing, mesh generation, texture mapping, DEM generation, orthomosaic creation, GCP workflow, ground control points, Structure from Motion, SfM, Multi-View Stereo, MVS, Claude AI, Claude Desktop, Claude Code, LLM photogrammetry, LiDAR classification, geospatial, remote sensing, surveying, digital twin, heritage documentation, Cesium 3D Tiles, GeoTIFF export
+Agisoft Metashape, MCP server, Model Context Protocol, photogrammetry automation, AI photogrammetry, drone mapping, aerial survey, 3D reconstruction, point cloud processing, mesh generation, texture mapping, DEM generation, orthomosaic creation, GCP workflow, ground control points, Structure from Motion, SfM, Multi-View Stereo, MVS, Claude AI, Claude Desktop, Claude Code, LLM photogrammetry, LiDAR classification, geospatial, remote sensing, surveying, digital twin, heritage documentation, Cesium 3D Tiles, GeoTIFF export, headless photogrammetry, batch processing, YOLO masking, Python scripting, automated pipeline, CI/CD photogrammetry
 
 ## License
 
