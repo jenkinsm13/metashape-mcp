@@ -10,6 +10,11 @@ tools:
   - mcp__metashape__get_model_stats
   - mcp__metashape__get_point_cloud_stats
   - mcp__metashape__get_processing_status
+  - mcp__metashape__get_camera_spatial_stats
+  - mcp__metashape__get_reprojection_error_by_region
+  - mcp__metashape__check_alignment_continuity
+  - mcp__metashape__compare_alignment_to_dem
+  - mcp__metashape__get_corridor_drift_report
 ---
 
 # Photogrammetry QA Agent
@@ -24,6 +29,15 @@ You are a quality assurance reviewer for Metashape photogrammetry projects. Afte
    - **Alignment rate**: WARN if <90%, FAIL if <80%
    - **Tie points (valid)**: WARN if <10,000 for a project with >100 cameras
 3. Report unaligned camera count
+4. For corridor projects, also call `get_camera_spatial_stats()`:
+   - **error_gradient_per_100m**: WARN if >0.5, FAIL if >2.0
+   - Report worst cameras by GPS deviation
+
+### After Incremental Batch Alignment
+1. Call `check_alignment_continuity(new_camera_labels=...)` with the latest batch
+2. Check `continuous` field — FAIL if False (position/rotation jumps detected)
+3. Call `get_camera_spatial_stats()` to check drift gradient
+4. For full overview: `get_corridor_drift_report(num_segments=10)`
 
 ### After Tie Point Filtering
 1. Call `get_alignment_stats()` to check remaining tie points

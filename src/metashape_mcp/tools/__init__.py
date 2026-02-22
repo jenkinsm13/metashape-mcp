@@ -9,6 +9,7 @@ from metashape_mcp.tools import (
     camera,
     coordinate,
     dense,
+    diagnostics,
     export,
     import_data,
     markers,
@@ -38,6 +39,7 @@ _MODULES = [
     network,
     viewport,
     scripting,
+    diagnostics,
 ]
 
 
