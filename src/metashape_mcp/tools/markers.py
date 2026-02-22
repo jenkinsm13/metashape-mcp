@@ -140,7 +140,7 @@ def register(mcp) -> None:
             raise RuntimeError("No markers in chunk.")
 
         cb = make_tracking_callback("Refining markers")
-        chunk.trackMarkers(progress=cb)
+        chunk.refineMarkers(progress=cb)
 
         auto_save()
         return {
@@ -272,12 +272,12 @@ def register(mcp) -> None:
         raise RuntimeError(f"Marker '{label}' not found.")
 
     @mcp.tool()
-    def export_markers(path: str, delimiter: str = ",") -> dict:
-        """Export all marker positions and errors to CSV.
+    def export_markers(path: str, binary: bool = False) -> dict:
+        """Export all marker positions to file.
 
         Args:
-            path: Output file path for the CSV export.
-            delimiter: Column delimiter. Defaults to comma.
+            path: Output file path for the export.
+            binary: Export in binary format.
 
         Returns:
             Export path and file size.
@@ -286,12 +286,7 @@ def register(mcp) -> None:
         if not chunk.markers:
             raise RuntimeError("No markers in chunk.")
 
-        try:
-            chunk.exportMarkers(path=path, delimiter=delimiter)
-        except AttributeError:
-            chunk.exportReference(
-                path=path, items=Metashape.ReferenceItemsMarkers
-            )
+        chunk.exportMarkers(path=path, binary=binary)
 
         return {
             "path": path,

@@ -263,9 +263,9 @@ def register(mcp) -> None:
             chunks=chunks,
             merge_markers=merge_markers,
             merge_tiepoints=merge_tie_points,
-            merge_depth_maps=merge_depth_maps,
-            merge_point_clouds=merge_point_clouds,
-            merge_models=merge_models,
+            copy_depth_maps=merge_depth_maps,
+            copy_point_clouds=merge_point_clouds,
+            copy_models=merge_models,
         )
 
         auto_save()

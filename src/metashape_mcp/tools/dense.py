@@ -198,7 +198,7 @@ def register(mcp) -> None:
 
     @mcp.tool()
     def calculate_point_normals(
-        point_count: int = 20,
+        point_neighbors: int = 28,
     ) -> dict:
         """Calculate normal vectors for the dense point cloud.
 
@@ -206,7 +206,7 @@ def register(mcp) -> None:
         visualization.
 
         Args:
-            point_count: Number of neighboring points used for normal estimation.
+            point_neighbors: Number of neighboring points used for normal estimation.
 
         Returns:
             Confirmation that normals were calculated.
@@ -216,8 +216,8 @@ def register(mcp) -> None:
 
         cb = make_tracking_callback("Calculating point normals")
 
-        chunk.point_cloud.calculateNormals(
-            point_count=point_count,
+        chunk.calculatePointNormals(
+            point_neighbors=point_neighbors,
             progress=cb,
         )
 
@@ -309,7 +309,7 @@ def register(mcp) -> None:
         chunk = get_chunk()
         require_point_cloud(chunk)
 
-        chunk.point_cloud.assignClass(source_class=source_class, target_class=target_class)
+        chunk.point_cloud.assignClass(source=source_class, target=target_class)
 
         return {"status": "points_reclassified", "source_class": source_class, "target_class": target_class}
 

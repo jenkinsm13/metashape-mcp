@@ -181,9 +181,8 @@ def register(mcp) -> None:
         require_model(chunk)
 
         before = len(chunk.model.faces)
-        cb = make_tracking_callback("Closing holes")
 
-        chunk.model.closeHoles(level=level, progress=cb)
+        chunk.model.closeHoles(level=level)
 
         after = len(chunk.model.faces)
         return {"before": before, "after": after, "added": after - before}
