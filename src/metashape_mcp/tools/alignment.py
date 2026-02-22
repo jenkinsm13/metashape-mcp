@@ -201,6 +201,7 @@ def register(mcp) -> None:
         Returns:
             Number of points removed, remaining count, and final threshold.
         """
+        import random
         import Metashape
 
         chunk = get_chunk()
@@ -230,18 +231,25 @@ def register(mcp) -> None:
         f.init(chunk, criterion=crit)
         f.selectPoints(actual_threshold)
 
-        # Count selected points once
-        selected = sum(1 for p in points if p.selected)
+        # Estimate selected count by sampling (avoids iterating millions
+        # of C++ objects in Python — 10K samples takes <1s vs 60s+ for all).
+        sample_size = min(10000, before)
+        if sample_size > 0 and max_select_percent < 100:
+            indices = random.sample(range(before), sample_size)
+            sample_selected = sum(1 for i in indices if points[i].selected)
+            estimated_pct = sample_selected / sample_size * 100
 
-        # Raise threshold with adaptive step size until under the cap
-        step = max(0.1, threshold * 0.1)  # 10% of threshold or 0.1 minimum
-        while selected > max_allowed and actual_threshold < 1000:
-            actual_threshold = round(actual_threshold + step, 2)
-            f.selectPoints(actual_threshold)
-            selected = sum(1 for p in points if p.selected)
+            # Raise threshold with adaptive step size until under the cap
+            step = max(0.1, threshold * 0.1)
+            while estimated_pct > max_select_percent and actual_threshold < 1000:
+                actual_threshold = round(actual_threshold + step, 2)
+                f.selectPoints(actual_threshold)
+                sample_selected = sum(1 for i in indices if points[i].selected)
+                estimated_pct = sample_selected / sample_size * 100
 
         tp.removeSelectedPoints()
 
+        auto_save()
         after = len(tp.points) if tp.points else 0
         actually_removed = before - after
         result = {
