@@ -48,9 +48,28 @@ Call these in sequence (stop if any indicates no project is open):
 Based on the gathered data, classify the project into one of these stages:
 
 ```
+STAGE 0: NEW PROJECT
+  - No project open, or project has no chunks
+  - Next: Create project, use photo-import-setup skill
+
 STAGE 1: SETUP
-  - Project exists but no photos or <10 cameras
-  - Next: Import photos, configure sensors
+  - Project exists but needs configuration
+  - Sub-stages:
+    a) No photos (<10 cameras) → import photos
+    b) Photos imported, no GPS → import reference CSV
+    c) GPS loaded, sensors not configured → set_sensor (CHECK FISHEYE!)
+    d) Sensors configured, no masks → import_masks (if EXR with alpha)
+    e) Masks imported, quality not checked → analyze_images, disable bad frames
+    f) Quality checked, reference accuracy not set → set_reference_settings
+  - Detection: cameras exist but 0 aligned, check sensor type, check mask presence
+  - Next: Complete remaining setup sub-stages, then align
+  - Skill: photo-import-setup
+
+STAGE 1.5: VIDEO IMPORT (special case)
+  - Photos came from video frames (import_video was used or video files detected)
+  - Additional concerns: frame interval selection, GPS interpolation, motion blur
+  - Detection: camera labels follow video frame naming pattern (e.g., "frame_00001")
+  - Next: Verify frame quality, check GPS coverage, proceed to alignment
 
 STAGE 2: ALIGNMENT
   - Photos imported but not all aligned
@@ -100,10 +119,13 @@ Check for conditions that would block progress:
 
 | Blocker | Detection | Resolution |
 |---------|-----------|------------|
-| No cameras | `cameras: 0` in chunk info | Import photos |
+| No cameras | `cameras: 0` in chunk info | Import photos (photo-import-setup skill) |
 | No GPS data | `cameras_with_reference: 0` from spatial stats | Import GPS CSV |
+| Fisheye not configured | Sensor type is "frame" but project uses fisheye lens | `set_sensor(sensor_type="fisheye")` — #1 failure cause |
+| No masks on EXR project | Cameras have no masks but format is EXR | `import_masks(method="alpha", path="{filename}")` |
 | Alignment drift | `drift_assessment: FAIL` | Place GCPs (invoke gcp-advisor) |
 | No model exists | `has_model: False` but `has_tie_points: True` | Run dense pipeline |
+| Sky/tunnel artifacts | Model has suspicious face count or visual artifacts | See sky-artifact-prevention skill |
 | Processing in progress | `get_processing_status` returns active | Wait or cancel |
 | Blender has no tiles | `get_scene_info` shows 0 mesh objects | Import from Metashape (invoke handoff-coordinator) |
 
@@ -114,20 +136,28 @@ Check for conditions that would block progress:
 When the user asks "what's the full pipeline" or "what order do I do things", give them this:
 
 ```
-1. [  ] Import photos
-2. [  ] Configure sensors (fisheye type, rolling shutter)
-3. [  ] Set GPU config (CPU ON for alignment)
-4. [  ] Align in batches of ~200 cameras (corridor-alignment-pipeline)
-5. [  ] Check drift after each batch
-6. [  ] Place GCPs if drift detected (gcp-advisor)
-7. [  ] Filter tie points (USGS: RU=10, PA=3, RE=0.3)
-8. [  ] Optimize cameras after each filter pass
-9. [  ] Set GPU config (CPU OFF for dense)
-10. [  ] Build depth maps (downscale=2, filter=mild)
-11. [  ] Build mesh (arbitrary, from depth_maps)
-12. [  ] Build UV + texture
-13. [  ] Export PLY tiles
-14. [  ] Import into Blender (handoff-coordinator)
+0. [  ] Create project (or open existing)
+1. [  ] Import photos (photo-import-setup skill)
+2. [  ] Import GPS reference
+3. [  ] Configure sensors (fisheye type, rolling shutter)
+4. [  ] Import masks (EXR alpha → import_masks)
+5. [  ] Analyze image quality, disable bad frames
+6. [  ] Set reference accuracy (GPS type)
+7. [  ] Set GPU config (CPU ON for alignment)
+8. [  ] Align in batches of ~200 cameras (corridor-alignment-pipeline skill)
+9. [  ] Check drift after each batch
+10. [  ] Place GCPs if drift detected (gcp-advisor agent)
+11. [  ] Filter tie points — USGS: RU=10, PA=3, RE=0.3
+12. [  ] Optimize cameras after each filter pass
+13. [  ] Set GPU config (CPU OFF for dense)
+14. [  ] Build point cloud (sky-artifact-prevention skill)
+15. [  ] Classify ground points
+16. [  ] Build mesh from point cloud (NOT depth maps, to avoid tunnel)
+17. [  ] Clean model (component_size, level=75)
+18. [  ] Color calibration (calibrate_colors)
+19. [  ] Build UV + texture (texturing-pipeline skill)
+20. [  ] Export PLY tiles
+21. [  ] Import into Blender (handoff-coordinator agent)
 15. [  ] Basic cleanup all tiles (terrain-processor)
 16. [  ] Envelope cleanup on trouble tiles
 17. [  ] Surface classification

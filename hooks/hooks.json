@@ -26,6 +26,15 @@
           "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/block-reference-edit.sh"
         }
       ]
+    },
+    {
+      "matcher": "mcp__metashape__(build_depth_maps|build_point_cloud|build_model|build_texture|build_dem|build_orthomosaic)",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/preflight-estimate.sh"
+        }
+      ]
     }
   ],
   "PostToolUse": [
@@ -35,6 +44,15 @@
         {
           "type": "command",
           "command": "ruff format --quiet \"$CLAUDE_FILE_PATH\" 2>/dev/null; ruff check --fix --quiet \"$CLAUDE_FILE_PATH\" 2>/dev/null; exit 0"
+        }
+      ]
+    },
+    {
+      "matcher": "mcp__metashape__(align_cameras|build_depth_maps|build_point_cloud|build_model|build_texture)",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/post-qa-reminder.sh"
         }
       ]
     }

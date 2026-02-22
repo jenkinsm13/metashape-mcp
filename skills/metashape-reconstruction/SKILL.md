@@ -156,9 +156,33 @@ For **testing/preview**: `downscale=4` depth maps, `texture_size=4096`
 For **production**: `downscale=2` depth maps, `texture_size=8192`
 For **ultra quality**: `downscale=1` depth maps, `texture_size=16384`
 
+## Sky/Tunnel Artifact Prevention
+
+Road corridor captures commonly produce tunnel/dome mesh artifacts where the sky gets closed. This is because depth map interpolation ignores masks.
+
+**Quick fix:** Build mesh from point cloud instead of depth maps:
+```
+build_point_cloud(point_colors=True, point_confidence=True)
+build_model(source_data="point_cloud", surface_type="arbitrary", classes=[0, 1, 2, 6])
+clean_model(criterion="component_size", level=75)
+```
+
+**For the full decision tree and all 5 strategies**, see the `sky-artifact-prevention` skill.
+
+## Texture Pipeline
+
+For UV mapping, texture atlas settings, blending modes, and texture artifact diagnosis, see the `texturing-pipeline` skill.
+
+Quick reference:
+```
+build_uv(mapping_mode="generic", texture_size=8192)
+build_texture(blending_mode="mosaic", texture_size=8192, ghosting_filter=True)
+```
+
 ## Common Issues
 
 - **Out of GPU memory on depth maps**: Increase `downscale` (e.g., 2→4). Ultra (1) requires significant VRAM.
 - **Holes in mesh**: Try `interpolation="extrapolated"` or build from point cloud instead of depth maps.
-- **Blurry texture**: Increase `texture_size`, or try `blending_mode="mosaic"` for sharper (but seam-visible) results.
+- **Sky/tunnel artifacts**: Build from point cloud, not depth maps. See `sky-artifact-prevention` skill.
+- **Blurry texture**: Increase `texture_size`, or try `blending_mode="mosaic"`. See `texturing-pipeline` skill.
 - **Mesh too large for export**: Use `decimate_model(face_count=target)` after building.

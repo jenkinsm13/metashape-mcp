@@ -1,225 +1,368 @@
-# Metashape MCP - Road Corridor Capture Workflow Guide
+# Metashape MCP — Road Corridor Workflow Guide
 
-A practical guide for using the Metashape MCP server for large-scale road corridor captures destined for driving simulator environments.
+A practical guide for using the Metashape MCP server with AI agents for large-scale road corridor captures destined for driving simulator environments.
 
 ## Your Setup
 
 - **Camera**: Full-frame with fisheye lens, vehicle-mounted
 - **Format**: EXR with alpha channel (sky mask)
-- **Scale**: 5,000 - 50,000+ photos per project, ~25 miles of road at the high end
-- **GPS**: EXIF GPS extracted to CSV, supplemented with manually-placed GCPs at road markings
-- **Output**: Textured mesh (FBX/OBJ/glTF) for driving simulator (Unreal, etc.)
+- **Scale**: 5,000–50,000+ photos per project, ~25 miles of road at the high end
+- **GPS**: EXIF GPS or extracted CSV, supplemented with manually-placed GCPs at road markings
+- **Output**: Textured mesh (FBX) for driving simulator (Unreal, etc.)
+
+## Agent Team
+
+Seven specialized agents handle different aspects of the pipeline:
+
+| Agent | Role | When Invoked |
+|-------|------|-------------|
+| **project-planner** | Status overview, stage detection, next-step routing | Session start, "where am I?", context switching |
+| **alignment-doctor** | Diagnoses alignment failures, prescribes fixes | Alignment rate low, cameras in wrong positions, drift |
+| **gcp-advisor** | GCP strategy, marker errors, virtual checkpoints | Drift detected, planning GCP placement, marker errors high |
+| **handoff-coordinator** | Metashape ↔ Blender export/import/verification | Exporting tiles, importing into Blender, verifying transfers |
+| **terrain-processor** | Blender mesh cleanup, classification, UV, game-ready | Canopy removal, surface splitting, UV projection |
+| **texture-advisor** | Texture atlas, blending mode, artifact diagnosis | Choosing texture settings, diagnosing seams/blur/ghosting |
+| **photogrammetry-qa** | Post-processing QA checks | After alignment, dense recon, mesh building |
+
+Plus **metashape-api-verifier** for tool development/auditing.
+
+## Skills Reference
+
+| Skill | Coverage |
+|-------|---------|
+| **photo-import-setup** | Import photos, GPS, sensors, masks, quality check |
+| **corridor-alignment-pipeline** | Incremental batch alignment with drift detection |
+| **sky-artifact-prevention** | 5 strategies to prevent/fix tunnel mesh artifacts |
+| **metashape-reconstruction** | Depth maps, point cloud, mesh, texture, DEM |
+| **texturing-pipeline** | UV mapping, texture atlas, color calibration |
+| **tile-export-pipeline** | Blender → game-ready FBX export |
+| **photogrammetry-terrain-cleanup** | Blender-side canopy removal, classification, UV |
 
 ---
 
 ## Phase 1: Project Setup & Import
 
-Talk to Claude naturally:
-
 > "I have 21k photos of Highway 101 from SLO to Pismo. EXR files in C:/captures/101_south/. GPS is in gps_data.csv. Set up the project."
 
-What happens behind the scenes:
+**Skill:** `photo-import-setup`
+
+What happens:
 1. `create_project("C:/projects/101_south.psx")`
 2. `add_photos(["C:/captures/101_south/"])`
 3. `import_reference("C:/captures/101_south/gps_data.csv", columns="nxyz", delimiter=",")`
-4. `analyze_images()` — flags blown/blurry frames from the drive
+4. `set_sensor(sensor_index=0, sensor_type="fisheye")` — **CRITICAL for fisheye lenses**
+5. `import_masks(method="alpha", path="{filename}")` — imports EXR alpha as sky masks
+6. `analyze_images()` — flags blown/blurry frames
+7. `enable_cameras(labels=[...low_quality...], enable=False)` — disables bad frames
+
+### Sensor Configuration
+
+This is the #1 cause of total alignment failure. If you have a fisheye lens, you MUST set the sensor type:
+
+```
+set_sensor(sensor_index=0, sensor_type="fisheye")
+```
+
+The **alignment-doctor** agent exists largely because of this mistake.
 
 ### Mask Import
 
-Import your EXR alpha as masks in Metashape. The MCP doesn't currently automate mask import (Metashape's `importMasks()` method), but this can be done via Metashape's GUI or a one-liner in the console:
-
-```python
-chunk.importMasks(path="{filename}.exr", source=Metashape.MaskSourceAlpha)
+EXR files with alpha channel are imported as masks:
 ```
+import_masks(method="alpha", path="{filename}")
+```
+
+Masks are critical for preventing sky reconstruction artifacts. See Phase 4 and the `sky-artifact-prevention` skill.
 
 ---
 
 ## Phase 2: Alignment (Always Incremental)
 
-Alignment is always done in batches of ~2000 photos max. Never try to align everything at once — it will fail on large corridor datasets.
-
-Road captures have two travel directions (outbound and inbound) that overlap along the road centerline. You handle camera selection in one of two ways:
-
-### Option A: Select cameras in the GUI
-
-All photos are imported upfront. In Metashape's reference pane, select camera dots by GPS position and enable only the batch you want to align (~2000 at a time).
-
 > "I've enabled the first 2000 outbound cameras. Align them."
 
-### Option B: Separate outbound/inbound folders
+**Skill:** `corridor-alignment-pipeline`
 
-Photos are organized into outbound and inbound folders. Tell the agent to add from the head of one direction and tail of the other to build up coverage incrementally.
+Alignment is always done in batches of ~200 cameras. Never align everything at once — it fails on large corridor datasets.
 
-> "Add the first 2000 from outbound/ and align."
+### The Alignment Loop
 
-### The alignment loop
+For each batch:
+1. Enable batch cameras
+2. `match_photos(keep_keypoints=True, reference_preselection=True, guided_matching=True)`
+3. `align_cameras(reset_alignment=False)`
+4. **Check drift** — `get_camera_spatial_stats()`
+5. **Check continuity** — `check_alignment_continuity(new_camera_labels=...)`
+6. If PASS → next batch. If WARN → consider GCPs. If FAIL → STOP.
 
-1. Enable/add a batch of ~2000 cameras
-2. The agent runs `match_photos` + `align_cameras(reset_alignment=False)`
-3. Agent checks alignment rate and reports back
-4. You decide: add the next batch, place GCPs, remove problem cameras, or adjust settings
-5. Repeat until alignment is complete
+### Drift Thresholds
 
-The key is `reset_alignment=False` after the first batch — this builds on existing alignment instead of starting over.
-
-> "Alignment rate is 94% on the first 2000. Enable the next batch."
-> "Before we add more, I'm going to place GCPs at the first three intersections."
+| Gradient | Assessment | Action |
+|----------|------------|--------|
+| < 0.5 m/100m | PASS | Continue |
+| 0.5–2.0 m/100m | WARN | Alert user, suggest GCPs |
+| > 2.0 m/100m | FAIL | STOP — do not continue |
 
 ### Alignment Settings for Road Corridors
 
-- **Downscale 1 (High)** — you need the accuracy for long linear sequences
-- **Reference preselection = True** — essential for corridors, uses GPS to limit matching to nearby images
-- **Keypoint limit 60,000+** — fisheye lenses produce more distortion, need more keypoints
-- **Generic preselection = True** — helps bridge gaps in the sequence
-- **Guided matching = True** — helps with the repetitive nature of road surfaces
+| Setting | Value | Why |
+|---------|-------|-----|
+| downscale | 1 (High) | Accuracy for long corridors |
+| keypoint_limit | 60,000+ | Fisheye needs more keypoints |
+| reference_preselection | True | Essential for corridors |
+| generic_preselection | True | Bridges gaps in sequence |
+| guided_matching | True | Handles repetitive road surfaces |
+| keep_keypoints | True | Required for incremental alignment |
+| reset_alignment | False | After first batch — builds on existing |
+
+### GPU Config for Alignment
+```
+set_gpu_config(cpu_enable=True)   # CPU ON for alignment only
+```
 
 ---
 
 ## Phase 3: GCP Placement (Human Step)
 
-This stays interactive — you know the road markings better than any AI.
-
 > "Alignment looks good, I'm going to add GCPs now."
 
-You place GCPs at road markings/intersections in the Metashape GUI. When done:
+**Agent:** `gcp-advisor`
 
-> "I've added 12 GCPs at intersections. Optimize and show me the errors."
+GCP placement is interactive — you know the road markings. The agent advises on strategy.
 
-The LLM calls:
+### After Placing GCPs
+
 1. `optimize_cameras(adaptive_fitting=True)`
-2. `list_markers()` — shows error for each GCP
-3. Flags outliers: "GCP 'Elm_Oak_intersection' has 2.3m error vs 0.15m average. Check projections."
+2. `list_markers()` — shows per-marker error
+3. Agent flags outliers: "GCP 'Elm_Oak_intersection' has 2.3m error vs 0.15m average."
 
-### GCP Strategy for Road Corridors
+### GCP Strategy
 
-- Place at intersections where road markings are clearly visible
-- Every 500m-1km along the route minimum
+- Place at both ends of the corridor (non-negotiable for >500m)
+- Every 500m–1km minimum
 - More at curves and elevation changes
-- Road paint (stop bars, crosswalks) makes great natural GCPs
-- After optimization, look for any GCP with >3x the average error — likely misprojected
+- Road paint (stop bars, crosswalks) makes great natural targets
+
+### Tie Point Filtering (USGS Workflow)
+
+After GCPs and optimization:
+```
+filter_tie_points(criterion="reconstruction_uncertainty", threshold=10)
+optimize_cameras(adaptive_fitting=True)
+filter_tie_points(criterion="projection_accuracy", threshold=3)
+optimize_cameras(adaptive_fitting=True)
+filter_tie_points(criterion="reprojection_error", threshold=0.3)
+optimize_cameras(adaptive_fitting=True)
+```
+
+NEVER remove more than 50% of tie points in one pass — the tool enforces this automatically.
 
 ---
 
-## Phase 4: The Sky/Mesh Problem
+## Phase 4: Dense Reconstruction & Sky Artifact Prevention
 
-### The Fundamental Issue
+> "Build the mesh. Make sure we don't get the tunnel effect."
 
-Metashape has a well-known problem with road corridor captures:
-- **Masks are ignored** during mesh generation from depth maps
-- **Interpolation fills gaps** regardless of mask settings — the sky gets "closed" into a tunnel
-- This creates tunnel effects, flashing artifacts, and closed environments where you need open sky
+**Skills:** `metashape-reconstruction` + `sky-artifact-prevention`
 
-### Mitigation Strategies
+### The Sky/Tunnel Problem
 
-**Strategy A: Height Field Surface Type**
+Metashape's depth map mesh generation ignores masks — interpolation closes the sky into a tunnel. This is the #1 quality issue for road corridors.
+
+### Recommended Strategy (Full 3D with Canyon Walls)
+
 ```
-build_model(surface_type="height_field", source_data="depth_maps")
-```
-Height field mode only generates surface visible from above — eliminates the tunnel/dome problem entirely. Works well for road corridors where the ground surface is what you care about. Downside: loses vertical surfaces like building facades and walls.
+# GPU off for dense operations
+set_gpu_config(cpu_enable=False)
 
-**Strategy B: Aggressive Region Cropping**
-Set a tight reconstruction region that cuts off everything above a certain height:
-```
-set_region(center=[x, y, z], size=[width, height, limited_depth])
-```
-Limit the vertical extent to just above the tallest feature you care about.
+# Build point cloud — masks ARE respected here
+build_point_cloud(point_colors=True, point_confidence=True)
 
-**Strategy C: Point Cloud Classification + Filtered Mesh**
-1. `build_point_cloud(point_confidence=True)`
-2. `classify_ground_points()` — separates ground from vegetation/buildings/sky noise
-3. `build_model(source_data="point_cloud", classes=[2, 6])` — build mesh from only ground + building classes
-4. This avoids the depth map interpolation problem entirely since you're building from classified points
+# Classify ground (tuned for steep canyons)
+classify_ground_points(max_angle=25.0, max_distance=2.0, cell_size=20.0)
 
-**Strategy D: Depth Maps + Aggressive Cleaning**
-1. Build mesh from depth maps (it will create the tunnel)
-2. `clean_model(criterion="component_size", level=75)` — aggressively remove disconnected components
-3. Manually clean remaining sky artifacts in the Metashape GUI or a 3D editor
-4. This is tedious but sometimes necessary for quality
+# Build mesh from point cloud — NOT depth maps
+build_model(
+    surface_type="arbitrary",
+    source_data="point_cloud",
+    classes=[0, 1, 2, 6],
+    interpolation="enabled",
+    vertex_colors=True,
+    vertex_confidence=True
+)
 
-**Strategy E: Build from Point Cloud Instead of Depth Maps**
+# Clean remaining artifacts
+clean_model(criterion="component_size", level=75)
 ```
-build_model(source_data="point_cloud", surface_type="arbitrary")
-```
-Point cloud source respects the data better — if there are no points in the sky (because masks worked during point cloud generation), there's less interpolation. Still not perfect but often better than depth maps.
 
-**Recommended Combo:**
-1. Import masks from EXR alpha
-2. Build point cloud WITH masks (masks ARE respected during point cloud generation)
-3. Classify ground points
-4. Build mesh from point cloud, not depth maps
-5. Use region cropping to limit vertical extent
-6. Clean model to remove remaining artifacts
+### Alternative Strategies
+
+See the `sky-artifact-prevention` skill for all 5 strategies and the decision tree for choosing between them.
+
+| Strategy | Best For |
+|----------|---------|
+| Point cloud source | Full 3D with masks (recommended) |
+| Height field | Terrain-only, no vertical surfaces needed |
+| Classification + filtering | When you need precise control |
+| Region cropping | Quick and dirty, simple scenes |
+| Post-mesh cleanup | Fallback for remaining artifacts |
+
+### After Building
+
+Run QA: invoke the **photogrammetry-qa** agent to check model statistics and verify no major artifacts remain.
 
 ---
 
-## Phase 5: Texture & Export for Sim Engine
+## Phase 5: Texture
 
-> "Texture it and export as FBX for Unreal."
+> "Texture it for the driving sim."
 
-1. `build_uv(mapping_mode="generic", texture_size=8192)`
-2. `build_texture(blending_mode="mosaic", texture_size=8192, ghosting_filter=True)`
-3. `export_model("C:/exports/101_south.fbx", format="fbx", save_texture=True)`
+**Skill:** `texturing-pipeline`
 
-### Export Tips for Driving Simulators
+```
+build_uv(mapping_mode="generic", texture_size=8192)
+build_texture(
+    blending_mode="mosaic",
+    texture_size=8192,
+    ghosting_filter=True
+)
+```
 
-- **Face count**: Most sim engines want 2-10M faces per tile. Use `decimate_model()` if needed.
-- **Texture size**: 8192x8192 is the sweet spot. Larger causes VRAM issues in engines.
-- **FBX or glTF**: Both work well in Unreal/Unity. glTF is more modern.
-- **Coordinate system**: Set CRS before export so the model is geo-located in the sim.
-- **Split long corridors**: Export sections separately (2-5km each) to keep file sizes manageable.
+### Texture Settings for Road Corridors
+
+| Setting | Road Corridor Value | Why |
+|---------|-------------------|-----|
+| mapping_mode | generic | Best for arbitrary geometry |
+| texture_size | 8192 | Sim engine sweet spot |
+| blending_mode | mosaic | Sharpest road markings |
+| ghosting_filter | True | Removes moving vehicles |
+
+- **mosaic** blending: Sharpest detail per patch, best for road markings and text. May have visible seams.
+- **natural** blending: Smoother seams, slightly less sharp. Better for organic surfaces.
+
+If texture artifacts appear (seams, blur, ghosting), invoke the **texture-advisor** agent.
+
+---
+
+## Phase 6: Export to Blender
+
+> "Export tiles for Blender processing."
+
+**Agent:** `handoff-coordinator`
+
+### PLY Tile Export
+```
+export_model(
+    path="E:\\DeckerCanyon\\BlockModel\\Tile_5-3.ply",
+    format="ply",
+    save_normals=True,
+    save_colors=True,
+    binary=True
+)
+```
+
+The handoff-coordinator:
+1. Records CRS and face counts before export
+2. Verifies after import into Blender
+3. Checks for the 0.411x scale bug (Metashape internal scale leaking into exports)
+4. Enforces identity transforms in Blender
+
+### Coordinate System Notes
+- Exported PLY vertices are in the chunk CRS (real-world meters)
+- Blender has no CRS — 1 unit = 1 meter by convention
+- The approximate UTM offset (E=327225, N=3773379) is stripped during export for Blender compatibility
+
+---
+
+## Phase 7: Blender Processing
+
+> "Clean up the tiles, classify surfaces, project UVs."
+
+**Agent:** `terrain-processor`
+**Skill:** `photogrammetry-terrain-cleanup`
+
+### Processing Pipeline
+
+1. **Assessment** — scan all tiles, identify canopy percentage
+2. **Basic cleanup** — separate loose parts, threshold canopy removal, re-separate
+3. **Envelope cleanup** — raycasting-based removal for trouble tiles only
+4. **Surface classification** — vertex groups by face normal (Road, Rock Face, Vegetation)
+5. **UV projection** — top-down orthographic
+6. **Game-ready export** — FBX per tile
+
+### Golden Rules in Blender
+- **NEVER alter object-level transforms** (Location/Rotation/Scale must stay at identity)
+- **NEVER remove upward-facing faces** (normal Z >= 0 is terrain)
+- Save after every tile modification
+- Process 1-10 tiles per execute_blender_code call (not all 80)
+
+---
+
+## Phase 8: Final Export
+
+> "Export to FBX for Unreal."
+
+**Skill:** `tile-export-pipeline`
+
+```python
+bpy.ops.export_scene.fbx(
+    filepath="E:\\DeckerCanyon\\BlockModel\\GameReady\\Tile_5-3.fbx",
+    use_selection=True,
+    apply_scale_options='FBX_SCALE_NONE',
+    axis_forward='-Z',
+    axis_up='Y'
+)
+```
+
+Export each tile individually. The handoff-coordinator verifies the full manifest.
 
 ---
 
 ## Monitoring & Diagnostics
 
-Ask anytime:
-
+### Project Status Check
 > "How's my project looking?"
 
-The LLM reads resources (`metashape://project/chunks`, `metashape://chunk/*/summary`) and gives you a status report.
+**Agent:** `project-planner` reads state from both MCP servers and reports stage, blockers, and next step.
 
-> "Reprojection errors are high, what should I try?"
+### Drift Check
+> "Is there drift?"
 
-Uses the `diagnose_alignment` prompt to analyze and suggest fixes.
+**Agent:** `gcp-advisor` or diagnostics tools directly:
+```
+get_corridor_drift_report(num_segments=10)
+```
 
-> "What settings should I use for 21k photos with 64GB RAM?"
+### Alignment Problems
+> "Reprojection errors are high."
 
-Uses `optimize_quality_settings` to recommend parameters.
+**Agent:** `alignment-doctor` investigates root cause and prescribes specific fix.
+
+### QA After Processing
+> "Run QA on the mesh."
+
+**Agent:** `photogrammetry-qa` checks alignment rates, reprojection errors, model stats.
 
 ---
 
-## Batch Processing
-
-For processing multiple road segments with identical settings:
-
-> "Process all four chunks with the same settings: medium quality depth maps, moderate filtering, arbitrary mesh at 5M faces, mosaic texture at 8192."
-
-The LLM runs through each chunk sequentially, or submits to network processing:
-
-```
-network_connect("localhost")
-network_submit_batch(["BuildDepthMaps", "BuildModel", "BuildUV", "BuildTexture"], [...params...])
-```
-
-Then you can check on progress:
-
-> "How's the network batch doing?"
-
----
-
-## Quick Reference: Your Recommended Settings
+## Quick Reference: Recommended Settings
 
 | Step | Setting | Value | Why |
 |------|---------|-------|-----|
 | Match | downscale | 1 | Accuracy for long corridors |
 | Match | keypoint_limit | 60000 | Fisheye needs more keypoints |
 | Match | reference_preselection | True | Essential for corridors |
+| Match | keep_keypoints | True | Required for incremental |
 | Align | adaptive_fitting | True | Handles fisheye distortion |
-| Depth Maps | downscale | 4 (medium) | Balance for 20k+ photos |
-| Depth Maps | filter_mode | moderate | Road surfaces need moderate |
+| Dense | GPU cpu_enable | False | CPU slows GPU operations |
+| Depth Maps | downscale | 2–4 | Balance for 20k+ photos |
+| Depth Maps | filter_mode | mild | Road surfaces need mild |
 | Model | source_data | point_cloud | Avoids sky tunnel problem |
 | Model | surface_type | arbitrary | Preserves vertical surfaces |
-| Clean | level | 50-75 | Remove sky artifacts |
+| Model | classes | [0,1,2,6] | Ground + unclassified + building |
+| Clean | level | 75 | Remove sky artifacts |
 | UV | texture_size | 8192 | Sim engine sweet spot |
 | Texture | blending_mode | mosaic | Best for sharp road markings |
 | Texture | ghosting_filter | True | Handles moving vehicles |
+| FBX | scale | FBX_SCALE_NONE | No scale transform |
+| FBX | axis_forward | -Z | Unreal convention |
+| FBX | axis_up | Y | Unreal convention |

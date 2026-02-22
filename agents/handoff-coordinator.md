@@ -172,6 +172,57 @@ print(f"Size: {size[0]:.1f} x {size[1]:.1f} x {size[2]:.1f} meters")
 
 For this project, the approximate UTM offset is E=327225, N=3773379. If tiles appear near origin in Blender (coordinates near 0,0,0), but should be in UTM space, the offset was stripped during export. This is often intentional for Blender workflows (Blender works better with coordinates near origin).
 
+## Blender → Metashape: Re-Texturing Round Trip
+
+After Blender processing (cleanup, classification, splitting), meshes may need to go BACK to Metashape for photo-texturing. This is the reverse handoff.
+
+### When to Use
+- Cleaned/split meshes need photo texture (not just vertex colors)
+- Mesh was modified in Blender and texture needs rebuilding
+- Surface-specific texturing (different settings per Road/RockFace/Vegetation)
+
+### Export from Blender
+```python
+# Export cleaned mesh as OBJ (preserves UV if projected in Blender)
+bpy.ops.wm.obj_export(
+    filepath="E:\\DeckerCanyon\\BlockModel\\Cleaned\\Tile_5-3.obj",
+    export_selected_objects=True,
+    export_uv=True,
+    export_normals=True,
+    forward_axis='NEGATIVE_Z',
+    up_axis='Y'
+)
+```
+
+### Import into Metashape
+```
+import_model(
+    path="E:\\DeckerCanyon\\BlockModel\\Cleaned\\Tile_5-3.obj",
+    format="obj"
+)
+```
+
+### Re-Texture
+After import, the mesh replaces the chunk's model. Then:
+```
+build_uv(mapping_mode="generic", texture_size=8192)
+build_texture(blending_mode="mosaic", texture_size=8192, ghosting_filter=True)
+```
+
+See `texturing-pipeline` skill for full settings guide.
+
+### Mask Awareness
+If masks were painted or generated in Blender (e.g., to hide specific regions during re-texturing):
+- Export masks as 8-bit images (black=masked, white=visible)
+- Import into Metashape: `import_masks(method="file", path="E:\\masks\\{filename}_mask.png")`
+- Masks affect texture generation — masked areas won't contribute texture data
+
+### Verification After Round-Trip
+1. Check face count matches: Blender export count should equal Metashape import count
+2. Check vertex positions: spot-check bounding box matches
+3. Check UV integrity: if UVs were projected in Blender, verify they survived the OBJ round-trip
+4. After texturing: `capture_viewport()` to visually inspect
+
 ## FBX Final Export (Game-Ready)
 
 For final FBX export FROM Blender, reference the `tile-export-pipeline` skill. The golden rules:
