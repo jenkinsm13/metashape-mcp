@@ -231,28 +231,31 @@ def register(mcp) -> None:
                 f"Use: from_file, from_alpha, from_background, from_model."
             )
 
-        cameras_to_mask = []
+        # API expects camera keys (list[int]), not Camera objects
+        camera_keys = []
         for cam in chunk.cameras:
             if label_pattern and label_pattern not in cam.label:
                 continue
-            cameras_to_mask.append(cam)
+            camera_keys.append(cam.key)
+
+        cam_arg = camera_keys if label_pattern else None
 
         if method == "from_alpha":
             # Generate masks from source image alpha channels
             chunk.generateMasks(
                 masking_mode=mmode,
-                cameras=cameras_to_mask if label_pattern else None,
+                cameras=cam_arg,
             )
         elif method == "from_background":
             chunk.generateMasks(
                 masking_mode=mmode,
                 tolerance=tolerance,
-                cameras=cameras_to_mask if label_pattern else None,
+                cameras=cam_arg,
             )
         elif method == "from_model":
             chunk.generateMasks(
                 masking_mode=mmode,
-                cameras=cameras_to_mask if label_pattern else None,
+                cameras=cam_arg,
             )
         else:
             # from_file: load mask images from folder
@@ -261,7 +264,7 @@ def register(mcp) -> None:
             chunk.generateMasks(
                 path=os.path.join(path, "{filename}_mask.png"),
                 masking_mode=mmode,
-                cameras=cameras_to_mask if label_pattern else None,
+                cameras=cam_arg,
             )
 
         masked = sum(1 for c in chunk.cameras if c.mask is not None)
