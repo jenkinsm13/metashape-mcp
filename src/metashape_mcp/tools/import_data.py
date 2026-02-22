@@ -2,24 +2,21 @@
 
 import os
 
-from mcp.server.fastmcp import Context
-
 import Metashape
 
-from metashape_mcp.utils.bridge import get_chunk
+from metashape_mcp.utils.bridge import auto_save, get_chunk
 from metashape_mcp.utils.enums import resolve_enum
-from metashape_mcp.utils.progress import make_progress_callback
+from metashape_mcp.utils.progress import make_tracking_callback
 
 
 def register(mcp) -> None:
     """Register import tools."""
 
     @mcp.tool()
-    async def import_model(
+    def import_model(
         path: str,
         format: str | None = None,
         crs_epsg: int | None = None,
-        ctx: Context = None,
     ) -> dict:
         """Import a 3D model from file.
 
@@ -43,20 +40,20 @@ def register(mcp) -> None:
         if crs_epsg:
             kwargs["crs"] = Metashape.CoordinateSystem(f"EPSG::{crs_epsg}")
 
-        cb = make_progress_callback(ctx, "Importing model") if ctx else None
+        cb = make_tracking_callback("Importing model")
         kwargs["progress"] = cb
 
         chunk.importModel(**kwargs)
 
+        auto_save()
         return {"status": "model_imported", "path": path}
 
     @mcp.tool()
-    async def import_point_cloud(
+    def import_point_cloud(
         path: str,
         format: str | None = None,
         crs_epsg: int | None = None,
         is_laser_scan: bool = False,
-        ctx: Context = None,
     ) -> dict:
         """Import a point cloud from file.
 
@@ -81,15 +78,16 @@ def register(mcp) -> None:
         if crs_epsg:
             kwargs["crs"] = Metashape.CoordinateSystem(f"EPSG::{crs_epsg}")
 
-        cb = make_progress_callback(ctx, "Importing point cloud") if ctx else None
+        cb = make_tracking_callback("Importing point cloud")
         kwargs["progress"] = cb
 
         chunk.importPointCloud(**kwargs)
 
+        auto_save()
         return {"status": "point_cloud_imported", "path": path}
 
     @mcp.tool()
-    async def import_reference(
+    def import_reference(
         path: str,
         format: str = "csv",
         columns: str = "nxyz",
@@ -97,7 +95,6 @@ def register(mcp) -> None:
         crs_epsg: int | None = None,
         create_markers: bool = False,
         skip_rows: int = 0,
-        ctx: Context = None,
     ) -> dict:
         """Import reference data (GCPs, camera coordinates) from file.
 
@@ -132,19 +129,19 @@ def register(mcp) -> None:
         if crs_epsg:
             kwargs["crs"] = Metashape.CoordinateSystem(f"EPSG::{crs_epsg}")
 
-        cb = make_progress_callback(ctx, "Importing reference") if ctx else None
+        cb = make_tracking_callback("Importing reference")
         kwargs["progress"] = cb
 
         chunk.importReference(**kwargs)
 
+        auto_save()
         return {"status": "reference_imported", "path": path}
 
     @mcp.tool()
-    async def import_cameras(
+    def import_cameras(
         path: str,
         format: str = "xml",
         crs_epsg: int | None = None,
-        ctx: Context = None,
     ) -> dict:
         """Import camera positions and orientations from file.
 
@@ -167,20 +164,20 @@ def register(mcp) -> None:
         if crs_epsg:
             kwargs["crs"] = Metashape.CoordinateSystem(f"EPSG::{crs_epsg}")
 
-        cb = make_progress_callback(ctx, "Importing cameras") if ctx else None
+        cb = make_tracking_callback("Importing cameras")
         kwargs["progress"] = cb
 
         chunk.importCameras(**kwargs)
 
+        auto_save()
         return {"status": "cameras_imported", "path": path}
 
     @mcp.tool()
-    async def import_shapes(
+    def import_shapes(
         path: str,
         format: str | None = None,
         replace: bool = False,
         crs_epsg: int | None = None,
-        ctx: Context = None,
     ) -> dict:
         """Import GIS shapes (boundaries, polygons, polylines) from file.
 
@@ -205,15 +202,16 @@ def register(mcp) -> None:
         if crs_epsg:
             kwargs["crs"] = Metashape.CoordinateSystem(f"EPSG::{crs_epsg}")
 
-        cb = make_progress_callback(ctx, "Importing shapes") if ctx else None
+        cb = make_tracking_callback("Importing shapes")
         kwargs["progress"] = cb
 
         chunk.importShapes(**kwargs)
 
+        auto_save()
         return {"status": "shapes_imported", "path": path}
 
     @mcp.tool()
-    async def create_shape(
+    def create_shape(
         vertices: list[list[float]],
         shape_type: str = "polygon",
         label: str | None = None,
@@ -258,4 +256,5 @@ def register(mcp) -> None:
             group.label = group_label
             shape.group = group
 
+        auto_save()
         return {"label": shape.label, "type": shape_type, "vertices": len(vertices)}

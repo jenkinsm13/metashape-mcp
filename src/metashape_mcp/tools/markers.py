@@ -2,24 +2,21 @@
 
 import os
 
-from mcp.server.fastmcp import Context
-
 import Metashape
 
-from metashape_mcp.utils.bridge import get_chunk
+from metashape_mcp.utils.bridge import auto_save, get_chunk
 from metashape_mcp.utils.enums import resolve_enum
-from metashape_mcp.utils.progress import make_progress_callback
+from metashape_mcp.utils.progress import make_tracking_callback
 
 
 def register(mcp) -> None:
     """Register marker and GCP tools."""
 
     @mcp.tool()
-    async def detect_markers(
+    def detect_markers(
         target_type: str = "circular_12bit",
         tolerance: int = 50,
         filter_mask: bool = False,
-        ctx: Context = None,
     ) -> dict:
         """Auto-detect coded targets in images and create markers.
 
@@ -37,7 +34,7 @@ def register(mcp) -> None:
             raise RuntimeError("No cameras in chunk. Add photos first.")
 
         ttype = resolve_enum("target_type", target_type)
-        cb = make_progress_callback(ctx, "Detecting markers") if ctx else None
+        cb = make_tracking_callback("Detecting markers")
 
         chunk.detectMarkers(
             target_type=ttype,
@@ -46,6 +43,7 @@ def register(mcp) -> None:
             progress=cb,
         )
 
+        auto_save()
         return {
             "markers_detected": len(chunk.markers),
             "markers": [
@@ -77,6 +75,7 @@ def register(mcp) -> None:
             marker.reference.location = Metashape.Vector(position[:3])
             marker.reference.enabled = True
 
+        auto_save()
         return {
             "label": marker.label,
             "key": marker.key,
@@ -118,6 +117,7 @@ def register(mcp) -> None:
         scalebar = chunk.addScalebar(m1, m2)
         scalebar.reference.distance = distance
 
+        auto_save()
         return {
             "label": scalebar.label,
             "marker1": marker1_label,
@@ -126,7 +126,7 @@ def register(mcp) -> None:
         }
 
     @mcp.tool()
-    async def refine_markers(ctx: Context = None) -> dict:
+    def refine_markers() -> dict:
         """Refine marker positions for sub-pixel accuracy.
 
         Adjusts marker projections in individual images for better
@@ -139,10 +139,10 @@ def register(mcp) -> None:
         if not chunk.markers:
             raise RuntimeError("No markers in chunk.")
 
-        # Track markers through frames if multiframe
-        cb = make_progress_callback(ctx, "Refining markers") if ctx else None
+        cb = make_tracking_callback("Refining markers")
         chunk.trackMarkers(progress=cb)
 
+        auto_save()
         return {
             "status": "markers_refined",
             "marker_count": len(chunk.markers),
@@ -212,6 +212,7 @@ def register(mcp) -> None:
         for marker in chunk.markers:
             if marker.label == label:
                 chunk.remove(marker)
+                auto_save()
                 return {
                     "status": "marker_removed",
                     "label": label,
@@ -257,6 +258,7 @@ def register(mcp) -> None:
                         [accuracy_xy, accuracy_xy, az]
                     )
 
+                auto_save()
                 return {
                     "label": marker.label,
                     "key": marker.key,
@@ -311,6 +313,7 @@ def register(mcp) -> None:
         for scalebar in chunk.scalebars:
             if scalebar.label == label:
                 chunk.remove(scalebar)
+                auto_save()
                 return {
                     "status": "scalebar_removed",
                     "label": label,

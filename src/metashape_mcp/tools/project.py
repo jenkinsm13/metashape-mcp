@@ -4,7 +4,7 @@ import os
 
 import Metashape
 
-from metashape_mcp.utils.bridge import get_chunk, get_document
+from metashape_mcp.utils.bridge import auto_save, get_chunk, get_document
 from metashape_mcp.utils.progress import get_operation_state, request_cancel
 
 
@@ -268,6 +268,7 @@ def register(mcp) -> None:
             merge_models=merge_models,
         )
 
+        auto_save()
         return {
             "status": "chunks_merged",
             "chunks_merged": len(chunks),
@@ -275,11 +276,12 @@ def register(mcp) -> None:
         }
 
     @mcp.tool()
-    def align_chunks(method: str = "cameras") -> dict:
+    def align_chunks(method: str = "tie_points") -> dict:
         """Align chunks relative to each other.
 
         Args:
-            method: Alignment method - "cameras", "markers", or "point_cloud".
+            method: Alignment method - "tie_points" (0), "markers" (1),
+                    or "cameras" (2).
 
         Returns:
             Alignment status and chunk count.
@@ -287,7 +289,21 @@ def register(mcp) -> None:
         doc = get_document()
         if len(doc.chunks) < 2:
             raise RuntimeError("Need at least 2 chunks to align.")
-        doc.alignChunks(chunks=list(doc.chunks))
+
+        method_map = {
+            "tie_points": 0,
+            "markers": 1,
+            "cameras": 2,
+        }
+        m = method_map.get(method.lower())
+        if m is None:
+            raise ValueError(
+                f"Unknown alignment method: {method}. "
+                f"Use: tie_points, markers, cameras."
+            )
+
+        doc.alignChunks(chunks=list(doc.chunks), method=m)
+        auto_save()
         return {"status": "chunks_aligned", "chunks": len(doc.chunks)}
 
     @mcp.tool()

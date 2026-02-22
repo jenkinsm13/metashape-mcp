@@ -1,6 +1,6 @@
 """Photo alignment tools: match photos, align cameras, optimize."""
 
-from metashape_mcp.utils.bridge import get_chunk, require_tie_points
+from metashape_mcp.utils.bridge import auto_save, get_chunk, require_tie_points
 from metashape_mcp.utils.enums import resolve_enum
 from metashape_mcp.utils.progress import make_tracking_callback
 
@@ -19,6 +19,7 @@ def register(mcp) -> None:
         guided_matching: bool = False,
         keep_keypoints: bool = True,
         reset_matches: bool = False,
+        mask_tiepoints: bool = True,
     ) -> dict:
         """Perform feature matching between photos.
 
@@ -37,6 +38,8 @@ def register(mcp) -> None:
                 incremental workflows so subsequent batches can cross-match
                 new cameras against existing ones.
             reset_matches: Reset existing matches before matching.
+            mask_tiepoints: Apply mask filter to tie points. Excludes tie
+                points in masked image regions.
 
         Returns:
             Matching results with tie point count.
@@ -56,9 +59,11 @@ def register(mcp) -> None:
             guided_matching=guided_matching,
             keep_keypoints=keep_keypoints,
             reset_matches=reset_matches,
+            mask_tiepoints=mask_tiepoints,
             progress=cb,
         )
 
+        auto_save()
         tp = chunk.tie_points
         tp_count = len(tp.points) if tp and tp.points else 0
         return {
@@ -96,6 +101,7 @@ def register(mcp) -> None:
             progress=cb,
         )
 
+        auto_save()
         aligned = sum(1 for c in chunk.cameras if c.transform is not None)
         return {
             "aligned": aligned,
@@ -158,6 +164,7 @@ def register(mcp) -> None:
             progress=cb,
         )
 
+        auto_save()
         return {"status": "optimization_complete"}
 
     @mcp.tool()
@@ -214,31 +221,36 @@ def register(mcp) -> None:
             )
 
         tp = chunk.tie_points
-        before = len(tp.points) if tp.points else 0
+        points = tp.points
+        before = len(points) if points else 0
         max_allowed = int(before * max_select_percent / 100.0)
         actual_threshold = threshold
 
         f = Metashape.TiePoints.Filter()
         f.init(chunk, criterion=crit)
         f.selectPoints(actual_threshold)
-        selected = sum(1 for p in tp.points if p.selected)
 
-        # Raise threshold in 0.1 increments until under the cap
+        # Count selected points once
+        selected = sum(1 for p in points if p.selected)
+
+        # Raise threshold with adaptive step size until under the cap
+        step = max(0.1, threshold * 0.1)  # 10% of threshold or 0.1 minimum
         while selected > max_allowed and actual_threshold < 1000:
-            actual_threshold = round(actual_threshold + 0.1, 1)
+            actual_threshold = round(actual_threshold + step, 2)
             f.selectPoints(actual_threshold)
-            selected = sum(1 for p in tp.points if p.selected)
+            selected = sum(1 for p in points if p.selected)
 
         tp.removeSelectedPoints()
 
         after = len(tp.points) if tp.points else 0
+        actually_removed = before - after
         result = {
             "criterion": criterion,
             "threshold_requested": threshold,
             "threshold_used": actual_threshold,
-            "removed": selected,
+            "removed": actually_removed,
             "remaining": after,
-            "percent_removed": f"{selected / before:.1%}" if before else "0%",
+            "percent_removed": f"{actually_removed / before:.1%}" if before else "0%",
         }
         if actual_threshold != threshold:
             result["note"] = (

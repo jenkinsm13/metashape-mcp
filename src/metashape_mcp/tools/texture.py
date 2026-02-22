@@ -1,6 +1,6 @@
 """Texturing tools: UV mapping, texture generation, color calibration."""
 
-from metashape_mcp.utils.bridge import get_chunk, require_model
+from metashape_mcp.utils.bridge import auto_save, get_chunk, require_model
 from metashape_mcp.utils.enums import resolve_enum
 from metashape_mcp.utils.progress import make_tracking_callback
 
@@ -41,6 +41,7 @@ def register(mcp) -> None:
             progress=cb,
         )
 
+        auto_save()
         return {
             "status": "uv_built",
             "mapping_mode": mapping_mode,
@@ -49,7 +50,7 @@ def register(mcp) -> None:
 
     @mcp.tool()
     def build_texture(
-        blending_mode: str = "mosaic",
+        blending_mode: str = "natural",
         texture_size: int = 8192,
         ghosting_filter: bool = True,
         fill_holes: bool = True,
@@ -60,7 +61,7 @@ def register(mcp) -> None:
         onto the model surface to create the texture.
 
         Args:
-            blending_mode: "mosaic", "average", "natural", "min", "max", "disabled".
+            blending_mode: "natural" (default), "mosaic", "average", "min", "max", "disabled".
             texture_size: Texture page size in pixels.
             ghosting_filter: Filter ghosting artifacts from moving objects.
             fill_holes: Fill holes in the texture.
@@ -87,6 +88,7 @@ def register(mcp) -> None:
             progress=cb,
         )
 
+        auto_save()
         return {
             "status": "texture_built",
             "texture_size": texture_size,

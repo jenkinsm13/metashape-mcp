@@ -92,3 +92,13 @@ def require_orthomosaic(chunk: Metashape.Chunk) -> None:
     """Raise if the chunk has no orthomosaic."""
     if chunk.orthomosaic is None:
         raise RuntimeError("No orthomosaic found. Run 'build_orthomosaic' first.")
+
+
+def auto_save() -> None:
+    """Save the project if it has a path (not a new unsaved project)."""
+    try:
+        doc = get_document()
+        if doc.path:
+            doc.save()
+    except Exception:
+        pass  # Don't let save failures break the operation result

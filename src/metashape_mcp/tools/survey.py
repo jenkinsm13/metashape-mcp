@@ -1,6 +1,7 @@
 """Survey product tools: DEM, orthomosaic, tiled model, contours, panorama."""
 
 from metashape_mcp.utils.bridge import (
+    auto_save,
     get_chunk,
     require_elevation,
     require_model,
@@ -51,6 +52,7 @@ def register(mcp) -> None:
 
         chunk.buildDem(**kwargs)
 
+        auto_save()
         dem = chunk.elevation
         result = {"status": "dem_built"}
         if dem:
@@ -94,6 +96,7 @@ def register(mcp) -> None:
             progress=cb,
         )
 
+        auto_save()
         ortho = chunk.orthomosaic
         result = {"status": "orthomosaic_built"}
         if ortho:
@@ -134,6 +137,7 @@ def register(mcp) -> None:
             progress=cb,
         )
 
+        auto_save()
         return {"status": "tiled_model_built"}
 
     @mcp.tool()

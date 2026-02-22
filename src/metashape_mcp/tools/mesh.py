@@ -1,6 +1,6 @@
 """Mesh generation and editing tools."""
 
-from metashape_mcp.utils.bridge import get_chunk, require_model, require_tie_points
+from metashape_mcp.utils.bridge import auto_save, get_chunk, require_depth_maps, require_model, require_tie_points
 from metashape_mcp.utils.enums import resolve_enum
 from metashape_mcp.utils.progress import make_tracking_callback
 
@@ -16,7 +16,10 @@ def register(mcp) -> None:
         source_data: str = "depth_maps",
         interpolation: str = "enabled",
         vertex_colors: bool = True,
+        vertex_confidence: bool = True,
+        volumetric_masks: bool = False,
         keep_depth: bool = True,
+        classes: list[int] | None = None,
     ) -> dict:
         """Build a 3D mesh from depth maps or point cloud.
 
@@ -27,7 +30,10 @@ def register(mcp) -> None:
             source_data: Source: "depth_maps", "depth_maps_and_laser_scans", "point_cloud", "laser_scans", "tie_points".
             interpolation: "disabled", "enabled", or "extrapolated".
             vertex_colors: Calculate vertex colors.
+            vertex_confidence: Calculate vertex confidence values.
+            volumetric_masks: Enable strict volumetric masking.
             keep_depth: Keep depth maps after building.
+            classes: Point classes for surface extraction (e.g., [2] for ground only).
 
         Returns:
             Model statistics including face and vertex counts.
@@ -35,24 +41,35 @@ def register(mcp) -> None:
         chunk = get_chunk()
         require_tie_points(chunk)
 
+        # Validate depth maps exist when source requires them
+        if source_data in ("depth_maps", "depth_maps_and_laser_scans"):
+            require_depth_maps(chunk)
+
         stype = resolve_enum("surface_type", surface_type)
         src = resolve_enum("data_source", source_data)
         interp = resolve_enum("interpolation", interpolation)
 
         cb = make_tracking_callback("Building model")
 
-        chunk.buildModel(
-            surface_type=stype,
-            face_count=Metashape.CustomFaceCount,
-            face_count_custom=0,
-            source_data=src,
-            interpolation=interp,
-            vertex_colors=vertex_colors,
-            keep_depth=keep_depth,
-            trimming_radius=0,
-            progress=cb,
-        )
+        kwargs = {
+            "surface_type": stype,
+            "face_count": Metashape.CustomFaceCount,
+            "face_count_custom": 0,
+            "source_data": src,
+            "interpolation": interp,
+            "vertex_colors": vertex_colors,
+            "vertex_confidence": vertex_confidence,
+            "volumetric_masks": volumetric_masks,
+            "keep_depth": keep_depth,
+            "trimming_radius": 0,
+            "progress": cb,
+        }
+        if classes is not None:
+            kwargs["classes"] = classes
 
+        chunk.buildModel(**kwargs)
+
+        auto_save()
         model = chunk.model
         faces = len(model.faces) if model else 0
         vertices = len(model.vertices) if model else 0
@@ -82,6 +99,7 @@ def register(mcp) -> None:
 
         chunk.decimateModel(face_count=face_count, progress=cb)
 
+        auto_save()
         after = len(chunk.model.faces)
         return {"before": before, "after": after}
 
@@ -113,6 +131,7 @@ def register(mcp) -> None:
             progress=cb,
         )
 
+        auto_save()
         return {"status": "model_smoothed", "strength": strength}
 
     @mcp.tool()
@@ -197,6 +216,7 @@ def register(mcp) -> None:
             progress=cb,
         )
 
+        auto_save()
         model = chunk.model
         return {
             "status": "model_refined",

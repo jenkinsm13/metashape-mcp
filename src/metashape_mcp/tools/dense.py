@@ -3,6 +3,7 @@
 import Metashape
 
 from metashape_mcp.utils.bridge import (
+    auto_save,
     get_chunk,
     require_depth_maps,
     require_point_cloud,
@@ -50,6 +51,7 @@ def register(mcp) -> None:
             progress=cb,
         )
 
+        auto_save()
         return {
             "status": "depth_maps_built",
             "downscale": downscale,
@@ -85,6 +87,7 @@ def register(mcp) -> None:
             progress=cb,
         )
 
+        auto_save()
         pc = chunk.point_cloud
         point_count = len(pc.points) if pc else 0
         return {
@@ -161,6 +164,7 @@ def register(mcp) -> None:
             progress=cb,
         )
 
+        auto_save()
         return {"status": "ground_classification_complete"}
 
     @mcp.tool()
