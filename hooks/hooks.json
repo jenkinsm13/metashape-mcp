@@ -1,0 +1,22 @@
+{
+  "PreToolUse": [
+    {
+      "matcher": "mcp__metashape__(reset_camera_alignment|clear_model|clear_point_cloud|clear_depth_maps|clear_orthomosaic|clear_dem|clear_tiled_model)",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "echo 'DESTRUCTIVE: This will permanently delete processed Metashape data that may have taken hours to generate.'"
+        }
+      ]
+    },
+    {
+      "matcher": "Edit|Write",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/block-psx-edit.sh"
+        }
+      ]
+    }
+  ]
+}
