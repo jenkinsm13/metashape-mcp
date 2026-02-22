@@ -37,7 +37,7 @@ def register(mcp) -> None:
         if path is None:
             path = os.path.join(tempfile.gettempdir(), "metashape_viewport.png")
 
-        image = Metashape.app.captureView(
+        image = Metashape.app.model_view.captureView(
             width=width,
             height=height,
             transparent=transparent,

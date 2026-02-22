@@ -255,11 +255,13 @@ def register(mcp) -> None:
                 cameras=cameras_to_mask if label_pattern else None,
             )
         else:
-            # from_file: import mask images from folder
+            # from_file: load mask images from folder
             if not os.path.exists(path):
                 raise FileNotFoundError(f"Mask path not found: {path}")
-            chunk.importMasks(
+            chunk.generateMasks(
                 path=os.path.join(path, "{filename}_mask.png"),
+                masking_mode=mmode,
+                cameras=cameras_to_mask if label_pattern else None,
             )
 
         masked = sum(1 for c in chunk.cameras if c.mask is not None)

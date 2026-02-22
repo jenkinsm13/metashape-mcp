@@ -10,9 +10,6 @@ import Metashape
 
 # Each category maps lowercase strings to Metashape enum values.
 _ENUM_MAP = {
-    "downscale": {
-        "highest": 0, "ultra": 1, "high": 2, "medium": 4, "low": 8, "lowest": 16,
-    },
     "filter_mode": {
         "none": Metashape.NoFiltering,
         "mild": Metashape.MildFiltering,
