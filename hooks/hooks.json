@@ -17,6 +17,26 @@
           "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/block-psx-edit.sh"
         }
       ]
+    },
+    {
+      "matcher": "Edit|Write",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/block-reference-edit.sh"
+        }
+      ]
+    }
+  ],
+  "PostToolUse": [
+    {
+      "matcher": "Edit|Write",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "ruff format --quiet \"$CLAUDE_FILE_PATH\" 2>/dev/null; ruff check --fix --quiet \"$CLAUDE_FILE_PATH\" 2>/dev/null; exit 0"
+        }
+      ]
     }
   ]
 }
