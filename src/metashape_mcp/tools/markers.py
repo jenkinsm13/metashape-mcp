@@ -186,12 +186,16 @@ def register(mcp) -> None:
                 except Exception:
                     pass
 
-            # Count projections
-            projections = sum(
-                1 for cam in chunk.cameras
-                if m.projections.get(cam) is not None
-            )
-            info["projections"] = projections
+            # Count projections — Projections is a C++ object,
+            # use bracket access with KeyError, not .get()
+            proj_count = 0
+            for cam in chunk.cameras:
+                try:
+                    if m.projections[cam] is not None:
+                        proj_count += 1
+                except KeyError:
+                    pass
+            info["projections"] = proj_count
 
             result.append(info)
 
