@@ -1,7 +1,5 @@
 """Survey product tools: DEM, orthomosaic, tiled model, contours, panorama."""
 
-from mcp.server.fastmcp import Context
-
 from metashape_mcp.utils.bridge import (
     get_chunk,
     require_elevation,
@@ -11,9 +9,7 @@ from metashape_mcp.utils.bridge import (
 )
 from metashape_mcp.utils.enums import resolve_enum
 from metashape_mcp.utils.progress import (
-    make_progress_callback,
     make_tracking_callback,
-    run_in_thread,
 )
 
 
@@ -21,12 +17,11 @@ def register(mcp) -> None:
     """Register survey product tools."""
 
     @mcp.tool()
-    async def build_dem(
+    def build_dem(
         source_data: str = "point_cloud",
         interpolation: str = "enabled",
         resolution: float = 0,
         classes: list[int] | None = None,
-        ctx: Context = None,
     ) -> dict:
         """Build a Digital Elevation Model (DEM).
 
@@ -43,7 +38,7 @@ def register(mcp) -> None:
 
         src = resolve_enum("data_source", source_data)
         interp = resolve_enum("interpolation", interpolation)
-        cb = make_progress_callback(ctx, "Building DEM") if ctx else make_tracking_callback("Building DEM")
+        cb = make_tracking_callback("Building DEM")
 
         kwargs = {
             "source_data": src,
@@ -54,7 +49,7 @@ def register(mcp) -> None:
         if classes is not None:
             kwargs["classes"] = classes
 
-        await run_in_thread(chunk.buildDem, **kwargs)
+        chunk.buildDem(**kwargs)
 
         dem = chunk.elevation
         result = {"status": "dem_built"}
@@ -63,13 +58,12 @@ def register(mcp) -> None:
         return result
 
     @mcp.tool()
-    async def build_orthomosaic(
+    def build_orthomosaic(
         surface_data: str = "model",
         blending_mode: str = "mosaic",
         fill_holes: bool = True,
         ghosting_filter: bool = False,
         resolution: float = 0,
-        ctx: Context = None,
     ) -> dict:
         """Build an orthomosaic (georeferenced orthoimage).
 
@@ -89,10 +83,9 @@ def register(mcp) -> None:
 
         src = resolve_enum("data_source", surface_data)
         blend = resolve_enum("blending_mode", blending_mode)
-        cb = make_progress_callback(ctx, "Building orthomosaic") if ctx else make_tracking_callback("Building orthomosaic")
+        cb = make_tracking_callback("Building orthomosaic")
 
-        await run_in_thread(
-            chunk.buildOrthomosaic,
+        chunk.buildOrthomosaic(
             surface_data=src,
             blending_mode=blend,
             fill_holes=fill_holes,
@@ -108,12 +101,11 @@ def register(mcp) -> None:
         return result
 
     @mcp.tool()
-    async def build_tiled_model(
+    def build_tiled_model(
         pixel_size: float = 0,
         tile_size: int = 256,
         face_count: int = 20000,
         source_data: str = "depth_maps",
-        ctx: Context = None,
     ) -> dict:
         """Build a hierarchical tiled model for web/3D visualization.
 
@@ -132,10 +124,9 @@ def register(mcp) -> None:
         chunk = get_chunk()
 
         src = resolve_enum("data_source", source_data)
-        cb = make_progress_callback(ctx, "Building tiled model") if ctx else make_tracking_callback("Building tiled model")
+        cb = make_tracking_callback("Building tiled model")
 
-        await run_in_thread(
-            chunk.buildTiledModel,
+        chunk.buildTiledModel(
             pixel_size=pixel_size,
             tile_size=tile_size,
             face_count=face_count,
@@ -146,12 +137,11 @@ def register(mcp) -> None:
         return {"status": "tiled_model_built"}
 
     @mcp.tool()
-    async def build_contours(
+    def build_contours(
         interval: float = 1.0,
         source_data: str = "elevation",
         min_value: float = -1e10,
         max_value: float = 1e10,
-        ctx: Context = None,
     ) -> dict:
         """Generate contour lines from the DEM.
 
@@ -168,10 +158,9 @@ def register(mcp) -> None:
         require_elevation(chunk)
 
         src = resolve_enum("data_source", source_data)
-        cb = make_progress_callback(ctx, "Building contours") if ctx else make_tracking_callback("Building contours")
+        cb = make_tracking_callback("Building contours")
 
-        await run_in_thread(
-            chunk.buildContours,
+        chunk.buildContours(
             source_data=src,
             interval=interval,
             min_value=min_value,
@@ -182,12 +171,11 @@ def register(mcp) -> None:
         return {"status": "contours_built", "interval": interval}
 
     @mcp.tool()
-    async def build_panorama(
+    def build_panorama(
         blending_mode: str = "mosaic",
         ghosting_filter: bool = False,
         width: int = 0,
         height: int = 0,
-        ctx: Context = None,
     ) -> dict:
         """Generate spherical panoramas from camera stations.
 
@@ -203,10 +191,9 @@ def register(mcp) -> None:
         chunk = get_chunk()
 
         blend = resolve_enum("blending_mode", blending_mode)
-        cb = make_progress_callback(ctx, "Building panorama") if ctx else make_tracking_callback("Building panorama")
+        cb = make_tracking_callback("Building panorama")
 
-        await run_in_thread(
-            chunk.buildPanorama,
+        chunk.buildPanorama(
             blending_mode=blend,
             ghosting_filter=ghosting_filter,
             width=width,
@@ -217,7 +204,7 @@ def register(mcp) -> None:
         return {"status": "panorama_built"}
 
     @mcp.tool()
-    async def clear_dem() -> dict:
+    def clear_dem() -> dict:
         """Remove the DEM from the active chunk to free memory.
 
         Returns:
@@ -230,7 +217,7 @@ def register(mcp) -> None:
         return {"status": "dem_cleared"}
 
     @mcp.tool()
-    async def clear_orthomosaic() -> dict:
+    def clear_orthomosaic() -> dict:
         """Remove the orthomosaic from the active chunk to free memory.
 
         Returns:
@@ -243,7 +230,7 @@ def register(mcp) -> None:
         return {"status": "orthomosaic_cleared"}
 
     @mcp.tool()
-    async def clear_tiled_model() -> dict:
+    def clear_tiled_model() -> dict:
         """Remove the tiled model from the active chunk to free memory.
 
         Returns:

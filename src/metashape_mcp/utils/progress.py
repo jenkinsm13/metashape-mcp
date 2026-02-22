@@ -31,8 +31,9 @@ _STALE_TIMEOUT = 120.0
 
 
 def request_cancel():
-    """Signal all running operations to cancel."""
+    """Signal all running operations to cancel and clear operation state."""
     _cancel_event.set()
+    _clear_operation()
 
 
 def is_cancel_requested() -> bool:
@@ -70,6 +71,8 @@ def get_operation_state() -> dict:
 
 def _set_operation(operation: str, progress: float = 0.0, active: bool = True):
     """Update the global operation state."""
+    # Clamp progress to 0-1 range (some Metashape operations report > 1.0)
+    progress = max(0.0, min(1.0, progress))
     with _state_lock:
         _operation_state["active"] = active
         _operation_state["operation"] = operation
@@ -84,6 +87,9 @@ def _clear_operation():
     with _state_lock:
         _operation_state["active"] = False
         _operation_state["progress"] = 1.0
+        _operation_state["operation"] = ""
+        _operation_state["started_at"] = 0.0
+        _operation_state["last_callback_at"] = 0.0
 
 
 def make_progress_callback(ctx, operation: str):
@@ -94,6 +100,9 @@ def make_progress_callback(ctx, operation: str):
     global operation state for status queries.
     If cancellation is requested, raises an exception to abort the operation.
 
+    NOTE: Does NOT set operation state at factory time — run_in_thread
+    handles that after the anti-queuing guard check.
+
     Args:
         ctx: MCP Context object with report_progress method.
         operation: Human-readable operation name for progress messages.
@@ -101,26 +110,23 @@ def make_progress_callback(ctx, operation: str):
     Returns:
         A callable(float) -> bool suitable for Metashape's progress parameter.
     """
-    # Clear any stale cancel from a previous operation
     clear_cancel()
-    _set_operation(operation)
     loop = _get_or_create_loop()
 
     def callback(progress_value: float) -> bool:
-        # Update global state
         _set_operation(operation, progress_value)
 
-        # Check cancel flag
         if _cancel_event.is_set():
             _cancel_event.clear()
             _clear_operation()
             raise RuntimeError(f"Operation cancelled: {operation}")
 
         try:
+            pv = max(0.0, min(1.0, progress_value))
             coro = ctx.report_progress(
-                progress=progress_value,
+                progress=pv,
                 total=1.0,
-                message=f"{operation}: {progress_value:.0%}",
+                message=f"{operation}: {pv:.0%}",
             )
             if loop.is_running():
                 asyncio.run_coroutine_threadsafe(coro, loop)
@@ -139,6 +145,9 @@ def make_tracking_callback(operation: str):
 
     Use this when ctx is None but you still want status tracking.
 
+    NOTE: Does NOT set operation state at factory time — run_in_thread
+    handles that after the anti-queuing guard check.
+
     Args:
         operation: Human-readable operation name.
 
@@ -146,7 +155,6 @@ def make_tracking_callback(operation: str):
         A callable(float) -> bool suitable for Metashape's progress parameter.
     """
     clear_cancel()
-    _set_operation(operation)
 
     def callback(progress_value: float) -> bool:
         _set_operation(operation, progress_value)
@@ -161,13 +169,41 @@ def make_tracking_callback(operation: str):
     return callback
 
 
+def is_operation_active() -> bool:
+    """Check if a processing operation is currently running (non-stale)."""
+    now = time.time()
+    with _state_lock:
+        if not _operation_state["active"]:
+            return False
+        # Check if stale
+        if (
+            _operation_state["last_callback_at"] > 0
+            and now - _operation_state["last_callback_at"] > _STALE_TIMEOUT
+        ):
+            _operation_state["active"] = False
+            _operation_state["progress"] = 0.0
+            _operation_state["operation"] = ""
+            return False
+        return True
+
+
 async def run_in_thread(func, *args, **kwargs):
     """Run a blocking Metashape operation in a background thread.
 
     Keeps the asyncio event loop responsive so other MCP requests
     (like get_processing_status) can be served while the operation runs.
     Clears operation state when the call completes or fails.
+
+    Raises RuntimeError if another operation is already running,
+    preventing request queuing.
     """
+    if is_operation_active():
+        with _state_lock:
+            op = _operation_state["operation"]
+        raise RuntimeError(
+            f"Cannot start new operation: '{op}' is already running. "
+            f"Cancel it first with cancel_processing, then retry."
+        )
     try:
         return await asyncio.to_thread(func, *args, **kwargs)
     finally:

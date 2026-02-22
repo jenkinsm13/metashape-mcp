@@ -2,8 +2,6 @@
 
 import os
 
-from mcp.server.fastmcp import Context
-
 import Metashape
 
 from metashape_mcp.utils.bridge import (
@@ -15,9 +13,7 @@ from metashape_mcp.utils.bridge import (
 )
 from metashape_mcp.utils.enums import resolve_enum
 from metashape_mcp.utils.progress import (
-    make_progress_callback,
     make_tracking_callback,
-    run_in_thread,
 )
 
 
@@ -25,14 +21,13 @@ def register(mcp) -> None:
     """Register export tools."""
 
     @mcp.tool()
-    async def export_model(
+    def export_model(
         path: str,
         format: str = "obj",
         save_texture: bool = True,
         save_normals: bool = True,
         save_colors: bool = True,
         binary: bool = True,
-        ctx: Context = None,
     ) -> dict:
         """Export the 3D model to a file.
 
@@ -51,10 +46,9 @@ def register(mcp) -> None:
         require_model(chunk)
 
         fmt = resolve_enum("model_format", format)
-        cb = make_progress_callback(ctx, "Exporting model") if ctx else make_tracking_callback("Exporting model")
+        cb = make_tracking_callback("Exporting model")
 
-        await run_in_thread(
-            chunk.exportModel,
+        chunk.exportModel(
             path=path,
             format=fmt,
             save_texture=save_texture,
@@ -68,14 +62,13 @@ def register(mcp) -> None:
         return {"path": path, "size_bytes": size}
 
     @mcp.tool()
-    async def export_point_cloud(
+    def export_point_cloud(
         path: str,
         format: str = "las",
         source_data: str = "point_cloud",
         save_colors: bool = True,
         save_normals: bool = True,
         save_classification: bool = True,
-        ctx: Context = None,
     ) -> dict:
         """Export the dense point cloud to a file.
 
@@ -94,10 +87,9 @@ def register(mcp) -> None:
 
         fmt = resolve_enum("point_cloud_format", format)
         src = resolve_enum("data_source", source_data)
-        cb = make_progress_callback(ctx, "Exporting point cloud") if ctx else make_tracking_callback("Exporting point cloud")
+        cb = make_tracking_callback("Exporting point cloud")
 
-        await run_in_thread(
-            chunk.exportPointCloud,
+        chunk.exportPointCloud(
             path=path,
             format=fmt,
             source_data=src,
@@ -111,11 +103,10 @@ def register(mcp) -> None:
         return {"path": path, "size_bytes": size}
 
     @mcp.tool()
-    async def export_orthomosaic(
+    def export_orthomosaic(
         path: str,
         format: str = "tif",
         save_alpha: bool = True,
-        ctx: Context = None,
     ) -> dict:
         """Export the orthomosaic to a raster file.
 
@@ -131,10 +122,9 @@ def register(mcp) -> None:
         require_orthomosaic(chunk)
 
         fmt = resolve_enum("raster_format", format)
-        cb = make_progress_callback(ctx, "Exporting orthomosaic") if ctx else make_tracking_callback("Exporting orthomosaic")
+        cb = make_tracking_callback("Exporting orthomosaic")
 
-        await run_in_thread(
-            chunk.exportRaster,
+        chunk.exportRaster(
             path=path,
             format=fmt,
             source_data=Metashape.OrthomosaicData,
@@ -146,11 +136,10 @@ def register(mcp) -> None:
         return {"path": path, "size_bytes": size}
 
     @mcp.tool()
-    async def export_dem(
+    def export_dem(
         path: str,
         format: str = "tif",
         nodata_value: float = -32767,
-        ctx: Context = None,
     ) -> dict:
         """Export the DEM to a raster file.
 
@@ -166,10 +155,9 @@ def register(mcp) -> None:
         require_elevation(chunk)
 
         fmt = resolve_enum("raster_format", format)
-        cb = make_progress_callback(ctx, "Exporting DEM") if ctx else make_tracking_callback("Exporting DEM")
+        cb = make_tracking_callback("Exporting DEM")
 
-        await run_in_thread(
-            chunk.exportRaster,
+        chunk.exportRaster(
             path=path,
             format=fmt,
             source_data=Metashape.ElevationData,
@@ -181,11 +169,10 @@ def register(mcp) -> None:
         return {"path": path, "size_bytes": size}
 
     @mcp.tool()
-    async def export_report(
+    def export_report(
         path: str,
         title: str = "",
         description: str = "",
-        ctx: Context = None,
     ) -> dict:
         """Export a processing report in PDF format.
 
@@ -198,10 +185,9 @@ def register(mcp) -> None:
             Export confirmation.
         """
         chunk = get_chunk()
-        cb = make_progress_callback(ctx, "Exporting report") if ctx else make_tracking_callback("Exporting report")
+        cb = make_tracking_callback("Exporting report")
 
-        await run_in_thread(
-            chunk.exportReport,
+        chunk.exportReport(
             path=path,
             title=title,
             description=description,
@@ -212,10 +198,9 @@ def register(mcp) -> None:
         return {"path": path, "size_bytes": size}
 
     @mcp.tool()
-    async def export_cameras(
+    def export_cameras(
         path: str,
         format: str = "xml",
-        ctx: Context = None,
     ) -> dict:
         """Export camera positions and orientations.
 
@@ -229,10 +214,9 @@ def register(mcp) -> None:
         chunk = get_chunk()
 
         fmt = resolve_enum("cameras_format", format)
-        cb = make_progress_callback(ctx, "Exporting cameras") if ctx else make_tracking_callback("Exporting cameras")
+        cb = make_tracking_callback("Exporting cameras")
 
-        await run_in_thread(
-            chunk.exportCameras,
+        chunk.exportCameras(
             path=path,
             format=fmt,
             progress=cb,
@@ -242,10 +226,9 @@ def register(mcp) -> None:
         return {"path": path, "size_bytes": size}
 
     @mcp.tool()
-    async def export_tiled_model(
+    def export_tiled_model(
         path: str,
         format: str = "cesium",
-        ctx: Context = None,
     ) -> dict:
         """Export a tiled model for web/3D streaming.
 
@@ -263,10 +246,9 @@ def register(mcp) -> None:
             )
 
         fmt = resolve_enum("tiled_model_format", format)
-        cb = make_progress_callback(ctx, "Exporting tiled model") if ctx else make_tracking_callback("Exporting tiled model")
+        cb = make_tracking_callback("Exporting tiled model")
 
-        await run_in_thread(
-            chunk.exportTiledModel,
+        chunk.exportTiledModel(
             path=path,
             format=fmt,
             progress=cb,
@@ -275,13 +257,12 @@ def register(mcp) -> None:
         return {"path": path}
 
     @mcp.tool()
-    async def export_shapes(
+    def export_shapes(
         path: str,
         format: str = "shp",
         save_polygons: bool = True,
         save_polylines: bool = True,
         save_points: bool = True,
-        ctx: Context = None,
     ) -> dict:
         """Export shapes (boundaries, polylines, points) to file.
 
@@ -298,10 +279,9 @@ def register(mcp) -> None:
         chunk = get_chunk()
 
         fmt = resolve_enum("shapes_format", format)
-        cb = make_progress_callback(ctx, "Exporting shapes") if ctx else make_tracking_callback("Exporting shapes")
+        cb = make_tracking_callback("Exporting shapes")
 
-        await run_in_thread(
-            chunk.exportShapes,
+        chunk.exportShapes(
             path=path,
             format=fmt,
             save_polygons=save_polygons,
@@ -314,11 +294,10 @@ def register(mcp) -> None:
         return {"path": path, "size_bytes": size}
 
     @mcp.tool()
-    async def export_reference(
+    def export_reference(
         path: str,
         format: str = "csv",
         delimiter: str = ",",
-        ctx: Context = None,
     ) -> dict:
         """Export camera reference data (positions and errors) to file.
 
@@ -334,8 +313,7 @@ def register(mcp) -> None:
 
         fmt = resolve_enum("reference_format", format)
 
-        await run_in_thread(
-            chunk.exportReference,
+        chunk.exportReference(
             path=path,
             format=fmt,
             delimiter=delimiter,
@@ -345,11 +323,10 @@ def register(mcp) -> None:
         return {"path": path, "size_bytes": size}
 
     @mcp.tool()
-    async def export_tie_points(
+    def export_tie_points(
         path: str,
         format: str = "las",
         save_colors: bool = True,
-        ctx: Context = None,
     ) -> dict:
         """Export the sparse tie point cloud to a file.
 
@@ -369,10 +346,9 @@ def register(mcp) -> None:
 
         fmt = resolve_enum("point_cloud_format", format)
         src = resolve_enum("data_source", "tie_points")
-        cb = make_progress_callback(ctx, "Exporting tie points") if ctx else make_tracking_callback("Exporting tie points")
+        cb = make_tracking_callback("Exporting tie points")
 
-        await run_in_thread(
-            chunk.exportPointCloud,
+        chunk.exportPointCloud(
             path=path,
             format=fmt,
             source_data=src,

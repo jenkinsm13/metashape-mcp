@@ -57,6 +57,7 @@ _ENUM_MAP = {
         "elevation": Metashape.ElevationData,
         "orthomosaic": Metashape.OrthomosaicData,
         "depth_maps": Metashape.DepthMapsData,
+        "depth_maps_and_laser_scans": Metashape.DepthMapsAndLaserScansData,
         "images": Metashape.ImagesData,
         "laser_scans": Metashape.LaserScansData,
     },

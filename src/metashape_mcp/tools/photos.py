@@ -3,21 +3,15 @@
 import glob as globmod
 import os
 
-from mcp.server.fastmcp import Context
-
 from metashape_mcp.utils.bridge import get_chunk
-from metashape_mcp.utils.progress import (
-    make_progress_callback,
-    make_tracking_callback,
-    run_in_thread,
-)
+from metashape_mcp.utils.progress import make_tracking_callback
 
 
 def register(mcp) -> None:
     """Register photo management tools."""
 
     @mcp.tool()
-    async def add_photos(paths: list[str], ctx: Context = None) -> dict:
+    def add_photos(paths: list[str]) -> dict:
         """Add photos to the active chunk.
 
         Supports glob patterns (e.g., '/photos/*.jpg') and directories.
@@ -52,16 +46,14 @@ def register(mcp) -> None:
         if not files:
             raise ValueError("No image files found in the provided paths.")
 
-        cb = make_progress_callback(ctx, "Adding photos") if ctx else make_tracking_callback("Adding photos")
-        await run_in_thread(chunk.addPhotos, files, progress=cb)
+        cb = make_tracking_callback("Adding photos")
+        chunk.addPhotos(files, progress=cb)
 
         added = len(chunk.cameras) - before
         return {"added": added, "total_cameras": len(chunk.cameras)}
 
     @mcp.tool()
-    async def analyze_images(
-        filter_mask: bool = False, ctx: Context = None
-    ) -> dict:
+    def analyze_images(filter_mask: bool = False) -> dict:
         """Estimate image quality for all cameras in the active chunk.
 
         Cameras with quality < 0.5 are considered blurry. Returns quality
@@ -77,8 +69,8 @@ def register(mcp) -> None:
         if not chunk.cameras:
             raise RuntimeError("No cameras in the active chunk.")
 
-        cb = make_progress_callback(ctx, "Analyzing images") if ctx else make_tracking_callback("Analyzing images")
-        await run_in_thread(chunk.analyzeImages, filter_mask=filter_mask, progress=cb)
+        cb = make_tracking_callback("Analyzing images")
+        chunk.analyzeImages(filter_mask=filter_mask, progress=cb)
 
         qualities = []
         low_quality = []
@@ -101,11 +93,10 @@ def register(mcp) -> None:
         }
 
     @mcp.tool()
-    async def import_video(
+    def import_video(
         path: str,
         frame_step: str = "custom",
         custom_step: int = 1,
-        ctx: Context = None,
     ) -> dict:
         """Import frames from a video file.
 
@@ -139,9 +130,8 @@ def register(mcp) -> None:
         os.makedirs(out_dir, exist_ok=True)
         image_path = os.path.join(out_dir, "frame{filenum}.png")
 
-        cb = make_progress_callback(ctx, "Importing video") if ctx else make_tracking_callback("Importing video")
-        await run_in_thread(
-            chunk.importVideo,
+        cb = make_tracking_callback("Importing video")
+        chunk.importVideo(
             path=path,
             image_path=image_path,
             frame_step=step,

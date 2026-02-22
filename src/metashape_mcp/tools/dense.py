@@ -1,7 +1,6 @@
 """Dense reconstruction tools: depth maps, point cloud, filtering."""
 
 import Metashape
-from mcp.server.fastmcp import Context
 
 from metashape_mcp.utils.bridge import (
     get_chunk,
@@ -10,23 +9,18 @@ from metashape_mcp.utils.bridge import (
     require_tie_points,
 )
 from metashape_mcp.utils.enums import resolve_enum
-from metashape_mcp.utils.progress import (
-    make_progress_callback,
-    make_tracking_callback,
-    run_in_thread,
-)
+from metashape_mcp.utils.progress import make_tracking_callback
 
 
 def register(mcp) -> None:
     """Register dense reconstruction tools."""
 
     @mcp.tool()
-    async def build_depth_maps(
+    def build_depth_maps(
         downscale: int = 4,
         filter_mode: str = "mild",
         max_neighbors: int = 16,
-        reuse_depth: bool = False,
-        ctx: Context = None,
+        reuse_depth: bool = True,
     ) -> dict:
         """Generate depth maps for aligned cameras.
 
@@ -46,10 +40,9 @@ def register(mcp) -> None:
         require_tie_points(chunk)
 
         fmode = resolve_enum("filter_mode", filter_mode)
-        cb = make_progress_callback(ctx, "Building depth maps") if ctx else make_tracking_callback("Building depth maps")
+        cb = make_tracking_callback("Building depth maps")
 
-        await run_in_thread(
-            chunk.buildDepthMaps,
+        chunk.buildDepthMaps(
             downscale=downscale,
             filter_mode=fmode,
             max_neighbors=max_neighbors,
@@ -64,11 +57,10 @@ def register(mcp) -> None:
         }
 
     @mcp.tool()
-    async def build_point_cloud(
+    def build_point_cloud(
         source_data: str = "depth_maps",
         point_colors: bool = True,
         point_confidence: bool = False,
-        ctx: Context = None,
     ) -> dict:
         """Build a dense point cloud from depth maps.
 
@@ -84,10 +76,9 @@ def register(mcp) -> None:
         require_depth_maps(chunk)
 
         src = resolve_enum("data_source", source_data)
-        cb = make_progress_callback(ctx, "Building point cloud") if ctx else make_tracking_callback("Building point cloud")
+        cb = make_tracking_callback("Building point cloud")
 
-        await run_in_thread(
-            chunk.buildPointCloud,
+        chunk.buildPointCloud(
             source_data=src,
             point_colors=point_colors,
             point_confidence=point_confidence,
@@ -102,10 +93,9 @@ def register(mcp) -> None:
         }
 
     @mcp.tool()
-    async def filter_point_cloud(
+    def filter_point_cloud(
         point_spacing: float = 0,
         clip_to_region: bool = False,
-        ctx: Context = None,
     ) -> dict:
         """Filter (subsample) the dense point cloud.
 
@@ -122,10 +112,9 @@ def register(mcp) -> None:
         require_point_cloud(chunk)
 
         before = len(chunk.point_cloud.points)
-        cb = make_progress_callback(ctx, "Filtering point cloud") if ctx else make_tracking_callback("Filtering point cloud")
+        cb = make_tracking_callback("Filtering point cloud")
 
-        await run_in_thread(
-            chunk.filterPointCloud,
+        chunk.filterPointCloud(
             point_spacing=point_spacing,
             clip_to_region=clip_to_region,
             progress=cb,
@@ -139,12 +128,11 @@ def register(mcp) -> None:
         }
 
     @mcp.tool()
-    async def classify_ground_points(
+    def classify_ground_points(
         max_angle: float = 10.0,
         max_distance: float = 1.0,
         max_terrain_slope: float = 10.0,
         cell_size: float = 50.0,
-        ctx: Context = None,
     ) -> dict:
         """Classify ground points in the dense point cloud.
 
@@ -163,10 +151,9 @@ def register(mcp) -> None:
         chunk = get_chunk()
         require_point_cloud(chunk)
 
-        cb = make_progress_callback(ctx, "Classifying ground points") if ctx else make_tracking_callback("Classifying ground points")
+        cb = make_tracking_callback("Classifying ground points")
 
-        await run_in_thread(
-            chunk.point_cloud.classifyGroundPoints,
+        chunk.point_cloud.classifyGroundPoints(
             max_angle=max_angle,
             max_distance=max_distance,
             max_terrain_slope=max_terrain_slope,
@@ -206,9 +193,8 @@ def register(mcp) -> None:
         return {"status": "point_cloud_cleared"}
 
     @mcp.tool()
-    async def calculate_point_normals(
+    def calculate_point_normals(
         point_count: int = 20,
-        ctx: Context = None,
     ) -> dict:
         """Calculate normal vectors for the dense point cloud.
 
@@ -224,10 +210,9 @@ def register(mcp) -> None:
         chunk = get_chunk()
         require_point_cloud(chunk)
 
-        cb = make_progress_callback(ctx, "Calculating point normals") if ctx else make_tracking_callback("Calculating point normals")
+        cb = make_tracking_callback("Calculating point normals")
 
-        await run_in_thread(
-            chunk.point_cloud.calculateNormals,
+        chunk.point_cloud.calculateNormals(
             point_count=point_count,
             progress=cb,
         )
@@ -235,9 +220,8 @@ def register(mcp) -> None:
         return {"status": "normals_calculated"}
 
     @mcp.tool()
-    async def colorize_point_cloud(
+    def colorize_point_cloud(
         source_data: str = "images",
-        ctx: Context = None,
     ) -> dict:
         """Colorize the dense point cloud from source imagery.
 
@@ -250,10 +234,9 @@ def register(mcp) -> None:
         chunk = get_chunk()
         require_point_cloud(chunk)
 
-        cb = make_progress_callback(ctx, "Colorizing point cloud") if ctx else make_tracking_callback("Colorizing point cloud")
+        cb = make_tracking_callback("Colorizing point cloud")
 
-        await run_in_thread(
-            chunk.colorizePointCloud,
+        chunk.colorizePointCloud(
             source_data=resolve_enum("data_source", source_data),
             progress=cb,
         )

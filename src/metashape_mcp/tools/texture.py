@@ -1,25 +1,18 @@
 """Texturing tools: UV mapping, texture generation, color calibration."""
 
-from mcp.server.fastmcp import Context
-
 from metashape_mcp.utils.bridge import get_chunk, require_model
 from metashape_mcp.utils.enums import resolve_enum
-from metashape_mcp.utils.progress import (
-    make_progress_callback,
-    make_tracking_callback,
-    run_in_thread,
-)
+from metashape_mcp.utils.progress import make_tracking_callback
 
 
 def register(mcp) -> None:
     """Register texturing tools."""
 
     @mcp.tool()
-    async def build_uv(
+    def build_uv(
         mapping_mode: str = "generic",
         page_count: int = 1,
         texture_size: int = 8192,
-        ctx: Context = None,
     ) -> dict:
         """Generate UV mapping for the 3D model.
 
@@ -39,10 +32,9 @@ def register(mcp) -> None:
         require_model(chunk)
 
         mode = resolve_enum("mapping_mode", mapping_mode)
-        cb = make_progress_callback(ctx, "Building UV map") if ctx else make_tracking_callback("Building UV map")
+        cb = make_tracking_callback("Building UV map")
 
-        await run_in_thread(
-            chunk.buildUV,
+        chunk.buildUV(
             mapping_mode=mode,
             page_count=page_count,
             texture_size=texture_size,
@@ -56,12 +48,11 @@ def register(mcp) -> None:
         }
 
     @mcp.tool()
-    async def build_texture(
+    def build_texture(
         blending_mode: str = "mosaic",
         texture_size: int = 8192,
         ghosting_filter: bool = True,
         fill_holes: bool = True,
-        ctx: Context = None,
     ) -> dict:
         """Generate texture atlas for the 3D model.
 
@@ -86,10 +77,9 @@ def register(mcp) -> None:
             )
 
         blend = resolve_enum("blending_mode", blending_mode)
-        cb = make_progress_callback(ctx, "Building texture") if ctx else make_tracking_callback("Building texture")
+        cb = make_tracking_callback("Building texture")
 
-        await run_in_thread(
-            chunk.buildTexture,
+        chunk.buildTexture(
             blending_mode=blend,
             texture_size=texture_size,
             ghosting_filter=ghosting_filter,
@@ -104,9 +94,8 @@ def register(mcp) -> None:
         }
 
     @mcp.tool()
-    async def calibrate_colors(
+    def calibrate_colors(
         white_balance: bool = False,
-        ctx: Context = None,
     ) -> dict:
         """Perform radiometric color calibration across cameras.
 
@@ -121,10 +110,9 @@ def register(mcp) -> None:
         """
         chunk = get_chunk()
 
-        cb = make_progress_callback(ctx, "Calibrating colors") if ctx else make_tracking_callback("Calibrating colors")
+        cb = make_tracking_callback("Calibrating colors")
 
-        await run_in_thread(
-            chunk.calibrateColors,
+        chunk.calibrateColors(
             white_balance=white_balance,
             progress=cb,
         )
@@ -132,10 +120,9 @@ def register(mcp) -> None:
         return {"status": "colors_calibrated", "white_balance": white_balance}
 
     @mcp.tool()
-    async def calibrate_reflectance(
+    def calibrate_reflectance(
         use_panels: bool = True,
         use_sun_sensor: bool = False,
-        ctx: Context = None,
     ) -> dict:
         """Calibrate reflectance using panels and/or sun sensor.
 
@@ -150,10 +137,9 @@ def register(mcp) -> None:
         """
         chunk = get_chunk()
 
-        cb = make_progress_callback(ctx, "Calibrating reflectance") if ctx else make_tracking_callback("Calibrating reflectance")
+        cb = make_tracking_callback("Calibrating reflectance")
 
-        await run_in_thread(
-            chunk.calibrateReflectance,
+        chunk.calibrateReflectance(
             use_reflectance_panels=use_panels,
             use_sun_sensor=use_sun_sensor,
             progress=cb,
@@ -166,7 +152,7 @@ def register(mcp) -> None:
         }
 
     @mcp.tool()
-    async def remove_texture() -> dict:
+    def remove_texture() -> dict:
         """Remove texture from the model but keep the mesh geometry.
 
         Returns:

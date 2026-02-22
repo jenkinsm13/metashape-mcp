@@ -1,21 +1,15 @@
 """Photo alignment tools: match photos, align cameras, optimize."""
 
-from mcp.server.fastmcp import Context
-
 from metashape_mcp.utils.bridge import get_chunk, require_tie_points
 from metashape_mcp.utils.enums import resolve_enum
-from metashape_mcp.utils.progress import (
-    make_progress_callback,
-    make_tracking_callback,
-    run_in_thread,
-)
+from metashape_mcp.utils.progress import make_tracking_callback
 
 
 def register(mcp) -> None:
     """Register alignment tools."""
 
     @mcp.tool()
-    async def match_photos(
+    def match_photos(
         downscale: int = 1,
         generic_preselection: bool = True,
         reference_preselection: bool = False,
@@ -25,7 +19,6 @@ def register(mcp) -> None:
         guided_matching: bool = False,
         keep_keypoints: bool = True,
         reset_matches: bool = False,
-        ctx: Context = None,
     ) -> dict:
         """Perform feature matching between photos.
 
@@ -52,9 +45,8 @@ def register(mcp) -> None:
         if not chunk.cameras:
             raise RuntimeError("No cameras in chunk. Add photos first.")
 
-        cb = make_progress_callback(ctx, "Matching photos") if ctx else make_tracking_callback("Matching photos")
-        await run_in_thread(
-            chunk.matchPhotos,
+        cb = make_tracking_callback("Matching photos")
+        chunk.matchPhotos(
             downscale=downscale,
             generic_preselection=generic_preselection,
             reference_preselection=reference_preselection,
@@ -75,11 +67,10 @@ def register(mcp) -> None:
         }
 
     @mcp.tool()
-    async def align_cameras(
+    def align_cameras(
         adaptive_fitting: bool = False,
         reset_alignment: bool = False,
         min_image: int = 2,
-        ctx: Context = None,
     ) -> dict:
         """Align cameras using matched features.
 
@@ -97,9 +88,8 @@ def register(mcp) -> None:
         chunk = get_chunk()
         require_tie_points(chunk)
 
-        cb = make_progress_callback(ctx, "Aligning cameras") if ctx else make_tracking_callback("Aligning cameras")
-        await run_in_thread(
-            chunk.alignCameras,
+        cb = make_tracking_callback("Aligning cameras")
+        chunk.alignCameras(
             adaptive_fitting=adaptive_fitting,
             reset_alignment=reset_alignment,
             min_image=min_image,
@@ -114,7 +104,7 @@ def register(mcp) -> None:
         }
 
     @mcp.tool()
-    async def optimize_cameras(
+    def optimize_cameras(
         fit_f: bool = True,
         fit_cx: bool = True,
         fit_cy: bool = True,
@@ -128,7 +118,6 @@ def register(mcp) -> None:
         fit_b2: bool = False,
         adaptive_fitting: bool = False,
         tiepoint_covariance: bool = False,
-        ctx: Context = None,
     ) -> dict:
         """Optimize camera calibration parameters.
 
@@ -151,9 +140,8 @@ def register(mcp) -> None:
         chunk = get_chunk()
         require_tie_points(chunk)
 
-        cb = make_progress_callback(ctx, "Optimizing cameras") if ctx else make_tracking_callback("Optimizing cameras")
-        await run_in_thread(
-            chunk.optimizeCameras,
+        cb = make_tracking_callback("Optimizing cameras")
+        chunk.optimizeCameras(
             fit_f=fit_f,
             fit_cx=fit_cx,
             fit_cy=fit_cy,
@@ -173,11 +161,10 @@ def register(mcp) -> None:
         return {"status": "optimization_complete"}
 
     @mcp.tool()
-    async def filter_tie_points(
+    def filter_tie_points(
         criterion: str = "ReprojectionError",
         threshold: float = 0.3,
         max_select_percent: float = 50.0,
-        ctx: Context = None,
     ) -> dict:
         """Filter (remove) tie points based on quality criteria.
 
