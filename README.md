@@ -149,6 +149,76 @@ The server runs in the foreground (blocks until Ctrl+C). All processing, export,
 
 ### 3. Connect your AI client
 
+#### Understanding the architecture (read this first)
+
+```
+┌──────────────────┐      stdio (no timeout)      ┌──────────────────┐      HTTP       ┌──────────────────┐
+│   Claude Code    │ ◄──────────────────────────► │   proxy.py       │ ◄─────────────► │   Metashape      │
+│   (AI client)    │                               │   (FastMCP)      │                  │   (port 8765)    │
+└──────────────────┘                               └──────────────────┘                  └──────────────────┘
+```
+
+Two things are running:
+
+1. **The HTTP server inside Metashape** — started in Step 2 above, listens on `http://127.0.0.1:8765/mcp`
+2. **The stdio proxy** (`proxy.py`) — a tiny FastMCP process that Claude Code spawns. It forwards tool calls from stdio to the HTTP server with a **24-hour timeout** instead of the default ~60 seconds.
+
+> **Why not connect Claude Code directly to `http://127.0.0.1:8765/mcp`?**
+>
+> You can, and it works for quick operations. But **photogrammetry operations take minutes to hours** (dense point clouds, mesh building, texturing large datasets). Claude Code's HTTP transport has a hard ~60-second read timeout. When a tool call takes longer than that, the connection drops and the operation appears to fail — even though Metashape is still processing. The stdio proxy has **no timeout**, so operations can run for as long as they need.
+
+---
+
+#### Claude Code (recommended setup — stdio proxy)
+
+> **This is the setup you almost certainly want.** It handles both quick operations and hour-long processing without timeout failures.
+
+**Step 1:** Install FastMCP in your system Python (the Python that Claude Code uses, NOT Metashape's Python):
+
+```bash
+pip install "fastmcp>=2.0.0"
+```
+
+**Step 2:** Add to your `.mcp.json` (either `~/.claude/.mcp.json` for global, or `.mcp.json` in your project root):
+
+```json
+{
+  "mcpServers": {
+    "metashape": {
+      "command": "python",
+      "args": ["-m", "metashape_mcp.proxy"],
+      "env": {
+        "PYTHONPATH": "C:/path/to/metashape-mcp/src"
+      }
+    }
+  }
+}
+```
+
+> **Replace `C:/path/to/metashape-mcp/src`** with the actual path to where you cloned this repo's `src/` directory.
+> For example: `"PYTHONPATH": "C:/Users/you/Documents/metashape-mcp/src"`
+
+**Step 3:** Verify it works — restart Claude Code (or run `/mcp` to reconnect), then ask Claude to list Metashape tools. You should see 106 tools appear.
+
+---
+
+#### Claude Code (direct HTTP — NOT recommended)
+
+> **Warning:** This works for quick operations but **will timeout and fail on any operation taking longer than ~60 seconds**. This includes dense point cloud generation, mesh building, texturing, and many other core photogrammetry operations. Use the stdio proxy above instead.
+
+```json
+{
+  "mcpServers": {
+    "metashape": {
+      "type": "http",
+      "url": "http://127.0.0.1:8765/mcp"
+    }
+  }
+}
+```
+
+---
+
 #### Claude Desktop
 
 Add to `claude_desktop_config.json`:
@@ -163,43 +233,7 @@ Add to `claude_desktop_config.json`:
 }
 ```
 
-#### Claude Code (HTTP)
-
-Add a `.mcp.json` file to your project directory:
-
-```json
-{
-  "mcpServers": {
-    "metashape": {
-      "type": "http",
-      "url": "http://127.0.0.1:8765/mcp"
-    }
-  }
-}
-```
-
-#### Claude Code with Stdio Proxy (recommended for full functionality)
-
-The stdio proxy bridges Claude Code to the Metashape HTTP server without timeout limits. This is required for long-running operations like dense point cloud generation, mesh building, and texture generation that would otherwise fail over plain HTTP.
-
-```bash
-# Install fastmcp in your system Python (or wherever Claude Code runs)
-pip install "fastmcp>=2.0.0"
-```
-
-Configure Claude Code to use the proxy in `.mcp.json` (update the path to where you cloned the repo):
-
-```json
-{
-  "mcpServers": {
-    "metashape": {
-      "type": "stdio",
-      "command": "python",
-      "args": ["C:/path/to/metashape-mcp/src/metashape_mcp/proxy.py"]
-    }
-  }
-}
-```
+> Claude Desktop manages its own HTTP connection and handles long-running operations differently from Claude Code. Direct HTTP works fine here.
 
 ## Usage Examples
 
@@ -307,9 +341,10 @@ src/metashape_mcp/
 | Problem | Solution |
 |---------|----------|
 | **Server won't start** | Dependencies are auto-installed on first run. If auto-install fails, install manually: `"C:\Program Files\Agisoft\Metashape Pro\python\python.exe" -m pip install "mcp[cli]>=1.2.0" "fastmcp>=2.0.0"` (see below for macOS/Linux paths). |
-| **Connection refused** | Start the server inside Metashape first, then configure your AI client. The server must be running before connecting. |
-| **Timeout on long operations** | Use the stdio proxy instead of direct HTTP. Dense cloud and mesh operations can take minutes to hours. |
-| **Import errors** | Ensure `sys.path.insert(0, "/path/to/metashape-mcp/src")` points to the correct location of this repository. |
+| **Connection refused** | Start the server inside Metashape first (Step 2), then configure your AI client. The server must be running before connecting. |
+| **"Failed to reconnect" in Claude Code** | Make sure you're using the **stdio proxy** config (see Claude Code setup above), NOT direct HTTP. Also verify Metashape is running with the server started. Test with: `curl -s -X POST -H "Content-Type: application/json" -H "Accept: application/json" -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"0.1.0"}}}' http://127.0.0.1:8765/mcp` |
+| **Timeout / dropped connection on long operations** | You're using direct HTTP instead of the stdio proxy. Switch to the stdio proxy config — direct HTTP has a ~60s timeout that kills long-running photogrammetry operations. See "Claude Code (recommended setup)" above. |
+| **Import errors** | Ensure the `PYTHONPATH` in your `.mcp.json` points to `metashape-mcp/src`. If running manually, use `sys.path.insert(0, "/path/to/metashape-mcp/src")`. |
 | **"No document open"** | Open or create a Metashape project before running processing tools. Use the `open_project` or `create_project` tool. |
 
 ## Frequently Asked Questions
