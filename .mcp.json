@@ -1,10 +1,11 @@
 {
   "mcpServers": {
     "metashape": {
-      "type": "stdio",
       "command": "python",
       "args": ["-m", "metashape_mcp.proxy"],
-      "cwd": "C:\\Users\\micha\\Documents\\metashape-mcp\\src"
+      "env": {
+        "PYTHONPATH": "C:/path/to/metashape-mcp/src"
+      }
     }
   }
 }
