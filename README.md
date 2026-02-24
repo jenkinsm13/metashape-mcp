@@ -173,11 +173,17 @@ Two things are running:
 
 > **This is the setup you almost certainly want.** It handles both quick operations and hour-long processing without timeout failures.
 
-**Step 1:** Install FastMCP in your system Python (the Python that Claude Code uses, NOT Metashape's Python):
+**Step 1:** Find which Python Claude Code will use, and install FastMCP there:
 
 ```bash
+# Find your Python's full path
+python -c "import sys; print(sys.executable)"
+
+# Install FastMCP in that Python (NOT Metashape's Python)
 pip install "fastmcp>=2.0.0"
 ```
+
+> **Multiple Python installations?** If you have multiple Pythons (Miniconda, Windows Store, standalone installs), Claude Code may pick a different one than your terminal uses. The `"command"` in Step 2 must point to the Python that has `fastmcp` installed. Use the **full path** from the command above instead of just `"python"` to avoid ambiguity — e.g., `"command": "C:/Users/you/AppData/Local/.../python.exe"`.
 
 **Step 2:** Add to your `.mcp.json` (either `~/.claude/.mcp.json` for global, or `.mcp.json` in your project root):
 
@@ -197,6 +203,8 @@ pip install "fastmcp>=2.0.0"
 
 > **Replace `C:/path/to/metashape-mcp/src`** with the actual path to where you cloned this repo's `src/` directory.
 > For example: `"PYTHONPATH": "C:/Users/you/Documents/metashape-mcp/src"`
+>
+> **Replace `python`** with the full path to the Python executable that has `fastmcp` installed if you have multiple Python installations. See the note in Step 1.
 
 **Step 3:** Verify it works — restart Claude Code (or run `/mcp` to reconnect), then ask Claude to list Metashape tools. You should see 106 tools appear.
 
@@ -342,7 +350,7 @@ src/metashape_mcp/
 |---------|----------|
 | **Server won't start** | Dependencies are auto-installed on first run. If auto-install fails, install manually: `"C:\Program Files\Agisoft\Metashape Pro\python\python.exe" -m pip install "mcp[cli]>=1.2.0" "fastmcp>=2.0.0"` (see below for macOS/Linux paths). |
 | **Connection refused** | Start the server inside Metashape first (Step 2), then configure your AI client. The server must be running before connecting. |
-| **"Failed to reconnect" in Claude Code** | Make sure you're using the **stdio proxy** config (see Claude Code setup above), NOT direct HTTP. Also verify Metashape is running with the server started. Test with: `curl -s -X POST -H "Content-Type: application/json" -H "Accept: application/json" -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"0.1.0"}}}' http://127.0.0.1:8765/mcp` |
+| **"Failed to reconnect" in Claude Code** | **Most common cause:** Claude Code is spawning a different Python than the one with `fastmcp` installed. Check the debug log at `~/.claude/debug/` for `ModuleNotFoundError: No module named 'fastmcp'`. Fix: use the **full path** to the Python executable that has `fastmcp` installed in your `.mcp.json` `"command"` field instead of just `"python"`. Also verify: (1) you're using the stdio proxy config, not direct HTTP; (2) Metashape is running with the server started. Test the HTTP server directly with: `curl -s -X POST -H "Content-Type: application/json" -H "Accept: application/json" -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"0.1.0"}}}' http://127.0.0.1:8765/mcp` |
 | **Timeout / dropped connection on long operations** | You're using direct HTTP instead of the stdio proxy. Switch to the stdio proxy config — direct HTTP has a ~60s timeout that kills long-running photogrammetry operations. See "Claude Code (recommended setup)" above. |
 | **Import errors** | Ensure the `PYTHONPATH` in your `.mcp.json` points to `metashape-mcp/src`. If running manually, use `sys.path.insert(0, "/path/to/metashape-mcp/src")`. |
 | **"No document open"** | Open or create a Metashape project before running processing tools. Use the `open_project` or `create_project` tool. |
