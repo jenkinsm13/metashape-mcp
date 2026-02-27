@@ -32,10 +32,5 @@ client = Client(
 
 proxy = create_proxy(client, name="Metashape")
 
-def main():
-    """Entry point for `uvx metashape-mcp` / `pip install metashape-mcp`."""
-    proxy.run(transport="stdio")
-
-
 if __name__ == "__main__":
-    main()
+    proxy.run(transport="stdio")
