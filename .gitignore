@@ -20,3 +20,9 @@ api_reference.txt
 tmp_b64.txt
 mcp_call.py
 docs/plans/
+
+# Session/planning artifacts
+findings.md
+progress.md
+task_plan.md
+cache/
