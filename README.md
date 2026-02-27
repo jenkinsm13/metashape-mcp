@@ -83,9 +83,38 @@ This MCP server runs embedded inside Metashape's Python environment and exposes 
 - **Agisoft Metashape Professional 2.3+** (with Python 3.12 scripting)
 - **MCP Python SDK** and **FastMCP** — auto-installed on first run by the startup scripts
 
+## Quick Start
+
+```bash
+pip install metashape-mcp
+```
+
+Then add to your `.mcp.json` (either `~/.claude/.mcp.json` for global, or `.mcp.json` in your project root):
+
+```json
+{
+  "mcpServers": {
+    "metashape": {
+      "command": "uvx",
+      "args": ["metashape-mcp"]
+    }
+  }
+}
+```
+
+That's it for the client side. You still need the **MCP server running inside Metashape** — see [Step 2](#2-start-the-mcp-server-inside-metashape) below.
+
 ## Installation
 
-### 1. Clone this repository
+### 1. Install the package
+
+**Option A: From PyPI (recommended)**
+
+```bash
+pip install metashape-mcp
+```
+
+**Option B: From source (for development)**
 
 ```bash
 git clone https://github.com/jenkinsm13/metashape-mcp.git
@@ -173,40 +202,31 @@ Two things are running:
 
 > **This is the setup you almost certainly want.** It handles both quick operations and hour-long processing without timeout failures.
 
-**Step 1:** Find which Python Claude Code will use, and install FastMCP there:
-
-```bash
-# Find your Python's full path
-python -c "import sys; print(sys.executable)"
-
-# Install FastMCP in that Python (NOT Metashape's Python)
-pip install "fastmcp>=2.0.0"
-```
-
-> **Multiple Python installations?** If you have multiple Pythons (Miniconda, Windows Store, standalone installs), Claude Code may pick a different one than your terminal uses. The `"command"` in Step 2 must point to the Python that has `fastmcp` installed. Use the **full path** from the command above instead of just `"python"` to avoid ambiguity — e.g., `"command": "C:/Users/you/AppData/Local/.../python.exe"`.
-
-**Step 2:** Add to your `.mcp.json` (either `~/.claude/.mcp.json` for global, or `.mcp.json` in your project root):
+**Step 1:** Add to your `.mcp.json` (either `~/.claude/.mcp.json` for global, or `.mcp.json` in your project root):
 
 ```json
 {
   "mcpServers": {
     "metashape": {
-      "command": "python",
-      "args": ["-m", "metashape_mcp.proxy"],
-      "env": {
-        "PYTHONPATH": "C:/path/to/metashape-mcp/src"
-      }
+      "command": "uvx",
+      "args": ["metashape-mcp"]
     }
   }
 }
 ```
 
-> **Replace `C:/path/to/metashape-mcp/src`** with the actual path to where you cloned this repo's `src/` directory.
-> For example: `"PYTHONPATH": "C:/Users/you/Documents/metashape-mcp/src"`
->
-> **Replace `python`** with the full path to the Python executable that has `fastmcp` installed if you have multiple Python installations. See the note in Step 1.
+> **Don't have `uvx`?** Install it with `pip install uv`, or use `pip install metashape-mcp` and then:
+> ```json
+> {
+>   "mcpServers": {
+>     "metashape": {
+>       "command": "metashape-mcp"
+>     }
+>   }
+> }
+> ```
 
-**Step 3:** Verify it works — restart Claude Code (or run `/mcp` to reconnect), then ask Claude to list Metashape tools. You should see 106 tools appear.
+**Step 2:** Verify it works — restart Claude Code (or run `/mcp` to reconnect), then ask Claude to list Metashape tools. You should see 106 tools appear.
 
 ---
 

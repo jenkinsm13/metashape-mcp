@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "metashape-mcp"
-version = "0.1.0"
+version = "0.2.0"
 description = "MCP server for Agisoft Metashape Professional 2.3+"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -15,7 +15,7 @@ dependencies = [
 ]
 
 [project.scripts]
-metashape-mcp = "metashape_mcp.server:main"
+metashape-mcp = "metashape_mcp.proxy:main"
 
 [project.urls]
 Homepage = "https://github.com/jenkinsm13/metashape-mcp"
