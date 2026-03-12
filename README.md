@@ -26,7 +26,7 @@ This MCP server runs embedded inside Metashape's Python environment and exposes 
 - **10 resources** for real-time project state inspection
 - **6 prompts** for guided workflows (aerial survey, close-range, diagnostics)
 - Runs natively inside Metashape's embedded Python 3.12
-- Streamable HTTP transport on `http://127.0.0.1:8765`
+- Streamable HTTP transport (default `http://127.0.0.1:8765`, port is user-configurable via startup script or METASHAPE_MCP_PORT env)
 - Stdio proxy for Claude Code with no timeout limits on long operations
 - Progress reporting for dense cloud, mesh, and texture generation
 - Full coordinate reference system (CRS/EPSG) support
@@ -96,6 +96,12 @@ git clone https://github.com/jenkinsm13/metashape-mcp.git
 > **Dependencies are installed automatically.** The startup scripts detect missing packages (`mcp`, `fastmcp`) and install them into Metashape's Python on first run. No manual pip commands needed.
 
 A ready-to-use startup script is included at [`scripts/start_mcp_server.py`](scripts/start_mcp_server.py).
+
+The script now displays a small dialog on launch where you can view or
+change the TCP port used by the MCP server.  Your choice is saved in
+`~/.metashape_mcp_port` so subsequent sessions default to the same
+value.  Changing the port will restart the embedded server automatically
+(if one was already running).
 
 **Option A: Auto-start with Metashape (recommended)**
 

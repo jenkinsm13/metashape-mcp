@@ -14,7 +14,11 @@ All notable changes to the metashape-mcp plugin.
   `source_model_key`, `transfer_texture`, and `source_data` parameters
   allowing texture baking/transfer from another mesh.  Mosaic blending is
   required when using a source model.  (Fixes missing parameter report.)
-
+- **Server configuration:** port can now be set per session via the
+  new ``METASHAPE_MCP_PORT`` environment variable or the startup script
+  UI. ``scripts/start_mcp_server.py`` shows a dialog allowing the user to
+  view/edit the port; the value is persisted in `~/.metashape_mcp_port`
+  and changing it will restart the embedded MCP server automatically.
 ### Changed
 - **WORKFLOW_GUIDE.md**: Full rewrite — references all agents/skills, fixes outdated claims, shows agent-driven workflow
 - **metashape-reconstruction skill**: Added sky artifact prevention section and texturing-pipeline cross-reference
