@@ -17,6 +17,8 @@ Usage:
   python -m metashape_mcp.proxy
 """
 
+import os
+
 from fastmcp import Client
 from fastmcp.server import create_proxy
 
@@ -25,8 +27,14 @@ from fastmcp.server import create_proxy
 # was killing long tool calls.
 _TIMEOUT_SECONDS = 86400
 
+# allow the port to be overridden for multi-instance setups.  the same
+# environment variable (`METASHAPE_MCP_PORT`) is used by the
+# `server.start_background` helpers so users only need to set it once.
+port = int(os.environ.get("METASHAPE_MCP_PORT", "8765"))
+url = f"http://127.0.0.1:{port}/mcp"
+
 client = Client(
-    "http://127.0.0.1:8765/mcp",
+    url,
     timeout=_TIMEOUT_SECONDS,
 )
 

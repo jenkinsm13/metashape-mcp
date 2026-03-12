@@ -177,6 +177,19 @@ Two things are running:
 
 #### Claude Code (recommended setup — stdio proxy)
 
+> **Multiple MCP instances?**
+> 1. Choose a different port for each Metashape session using the
+>    startup script dialog or `METASHAPE_MCP_PORT` env var.
+> 2. Configure the same port on the **agent side**:
+>    * For the stdio proxy, set `METASHAPE_MCP_PORT` in the environment
+>      where you launch `proxy.py` (it uses the variable to build its URL).
+>    * For direct HTTP connections, include the port in the `url` field of
+>      your `.mcp.json` or Claude Desktop config (e.g.
+>      `"url": "http://127.0.0.1:8766/mcp"`).
+>    This ensures the client talks to the right server instead of the
+>    default 8765 instance.
+
+
 > **This is the setup you almost certainly want.** It handles both quick operations and hour-long processing without timeout failures.
 
 **Step 1:** Find which Python Claude Code will use, and install FastMCP there:
