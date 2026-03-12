@@ -10,6 +10,12 @@ All notable changes to the metashape-mcp plugin.
 - **2 new hooks**: pre-flight time estimator (warns before long operations), post-QA reminder (suggests QA after processing steps)
 
 ### Changed
+- `build_texture` tool now accepts `anti_aliasing`,
+  `source_model_key`, `transfer_texture`, and `source_data` parameters
+  allowing texture baking/transfer from another mesh.  Mosaic blending is
+  required when using a source model.  (Fixes missing parameter report.)
+
+### Changed
 - **WORKFLOW_GUIDE.md**: Full rewrite — references all agents/skills, fixes outdated claims, shows agent-driven workflow
 - **metashape-reconstruction skill**: Added sky artifact prevention section and texturing-pipeline cross-reference
 - **project-planner agent**: Added Stage 0 (new project), expanded Stage 1 (setup sub-stages), video import awareness, updated pipeline checklist to 21 steps
