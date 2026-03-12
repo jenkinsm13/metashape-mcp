@@ -154,6 +154,11 @@ build_texture(blending_mode="mosaic", texture_size=8192, ghosting_filter=True)
 
 ## Diagnosing Texture Problems
 
+**Pro tip:** if you ever need to bake a texture from a previous chunk or
+model (for example, transferring a high‑res atlas onto a decimated mesh)
+use the `source_model_key`/`transfer_texture` parameters described above.
+
+
 ### Blurry texture
 | Cause | Fix |
 |-------|-----|
