@@ -55,6 +55,12 @@ build_texture(
 )
 ```
 
+You may also pass **anti_aliasing**, or if you are baking from another
+model (e.g. you decimated a high‑res mesh and want to reuse its texture)
+include `source_model_key=<int>`, `transfer_texture=True`, and
+`source_data="model"`. When using a source model the blending mode must
+be "mosaic" to avoid assertion errors in Metashape 2.3+.
+
 ### Step 3: (Optional) Color Calibration
 
 If colors look inconsistent across the mesh:

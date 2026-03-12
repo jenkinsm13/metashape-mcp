@@ -110,6 +110,8 @@ Use resources to monitor processing state between steps.
 13. **Smooth Model** (optional): smooth_model(strength=2, preserve_edges=True)
 14. **Build UV**: build_uv(mapping_mode="generic", texture_size=8192)
 15. **Build Texture**: build_texture(blending_mode="mosaic", texture_size=8192, ghosting_filter=True)
+    # additional options: anti_aliasing=1, source_model_key=<int>, transfer_texture=True,
+    # source_data="model" when baking from another mesh
 16. **Save Project**: save_project()
 
 Quality setting: {quality} (downscale={ds})
@@ -293,6 +295,7 @@ accuracy. GCPs are placed manually in the Metashape GUI at road markings
 20. **Build Texture**: build_texture(blending_mode="mosaic", texture_size=8192, ghosting_filter=True)
     - Mosaic blending preserves sharp road markings
     - Ghosting filter handles cars that moved between frames
+    - Optional parameters allow baking from a different model (see tool docs)
 21. **Export**: export_model("{project_path.replace('.psx', '')}.{export_format}", format="{export_format}", save_texture=True)
 22. **Export Report**: export_report("{project_path.replace('.psx', '_report.pdf')}")
 23. **Save Project**: save_project()

@@ -224,6 +224,8 @@ build_texture(
     blending_mode="mosaic",
     texture_size=8192,
     ghosting_filter=True
+    # optional: anti_aliasing=1, source_model_key=<key>, transfer_texture=True,
+    # source_data="model" when transferring a texture from another mesh
 )
 ```
 

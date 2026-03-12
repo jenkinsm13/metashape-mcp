@@ -54,17 +54,36 @@ def register(mcp) -> None:
         texture_size: int = 8192,
         ghosting_filter: bool = True,
         fill_holes: bool = True,
+        anti_aliasing: int = 0,
+        source_model_key: int | None = None,
+        transfer_texture: bool = False,
+        source_data: str = "model",
     ) -> dict:
         """Generate texture atlas for the 3D model.
 
         Requires UV mapping (run build_uv first). Projects camera images
-        onto the model surface to create the texture.
+        onto the model surface to create the texture or, when
+        ``source_model_key`` is provided, bake/transfer an existing texture
+        from another model (useful for workflows like decimating a high‑res
+        mesh and reusing its texture).
 
         Args:
-            blending_mode: "natural" (default), "mosaic", "average", "min", "max", "disabled".
+            blending_mode: "natural" (default), "mosaic", "average",
+                "min", "max", "disabled". **When transferring from another
+                model the blending mode must be "mosaic" (Metashape 2.3+
+                requires it to avoid assertion errors).**
             texture_size: Texture page size in pixels.
             ghosting_filter: Filter ghosting artifacts from moving objects.
             fill_holes: Fill holes in the texture.
+            anti_aliasing: Level of anti-aliasing to apply (0 disables).
+            source_model_key: Key of an existing model whose texture should be
+                baked/transfered onto the current mesh. If provided, the
+                ``transfer_texture`` and ``source_data`` options are used.
+            transfer_texture: When ``source_model_key`` is set, enable the
+                actual transfer step (otherwise only the source is referenced).
+            source_data: Source data enum ("model", "orthomosaic", etc.) to
+                read from when transferring. See the ``data_source`` enum
+                category.
 
         Returns:
             Texture generation results.
@@ -77,16 +96,35 @@ def register(mcp) -> None:
                 "No UV mapping found. Run 'build_uv' first."
             )
 
+        # validate parameters
+        if source_model_key is not None and blending_mode.lower() != "mosaic":
+            # Metashape 2.3 asserts when baking between models unless mosaic
+            # blending is used, so catch the mistake early and provide a clear
+            # message.
+            raise ValueError(
+                "Model-to-model texture transfer requires blending_mode='mosaic'."
+            )
+
         blend = resolve_enum("blending_mode", blending_mode)
         cb = make_tracking_callback("Building texture")
 
-        chunk.buildTexture(
-            blending_mode=blend,
-            texture_size=texture_size,
-            ghosting_filter=ghosting_filter,
-            fill_holes=fill_holes,
-            progress=cb,
-        )
+        # prepare keyword arguments for buildTexture call
+        kwargs = {
+            "blending_mode": blend,
+            "texture_size": texture_size,
+            "ghosting_filter": ghosting_filter,
+            "fill_holes": fill_holes,
+            "progress": cb,
+        }
+        if anti_aliasing:
+            kwargs["anti_aliasing"] = anti_aliasing
+
+        if source_model_key is not None:
+            kwargs["source_asset"] = source_model_key
+            kwargs["transfer_texture"] = transfer_texture
+            kwargs["source_data"] = resolve_enum("data_source", source_data)
+
+        chunk.buildTexture(**kwargs)
 
         auto_save()
         return {
