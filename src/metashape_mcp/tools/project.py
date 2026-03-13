@@ -12,6 +12,26 @@ def register(mcp) -> None:
     """Register project management tools."""
 
     @mcp.tool()
+    def get_project_info() -> dict:
+        """Return info about the currently open project.
+
+        Lightweight query — no side effects. Used by the multiplexer
+        to show live project paths in list_instances.
+
+        Returns:
+            Project path, chunk count, read-only status, and active chunk.
+        """
+        doc = Metashape.app.document
+        if not doc:
+            return {"path": "", "chunks": 0, "read_only": False, "active_chunk": None}
+        return {
+            "path": doc.path or "",
+            "chunks": len(doc.chunks),
+            "read_only": doc.read_only,
+            "active_chunk": doc.chunk.label if doc.chunk else None,
+        }
+
+    @mcp.tool()
     def open_project(path: str, read_only: bool = False) -> dict:
         """Open a Metashape project file (.psx/.psz).
 

@@ -54,21 +54,43 @@ def register(mcp) -> None:
         texture_size: int = 8192,
         ghosting_filter: bool = True,
         fill_holes: bool = True,
+        transfer_texture: bool = False,
+        source_model: int = 0,
+        anti_aliasing: bool = True,
     ) -> dict:
         """Generate texture atlas for the 3D model.
 
         Requires UV mapping (run build_uv first). Projects camera images
         onto the model surface to create the texture.
 
+        For texture transfer (baking from a high-poly source model onto the
+        current model), set transfer_texture=True and provide the source_model
+        key. The source model must already have a texture. Requires
+        blending_mode="mosaic" in Metashape 2.3+.
+
+        Pro tip: To bake a high-poly textured model onto a decimated mesh,
+        first build and texture the full model, note its model key, decimate
+        a copy, build UVs on the decimated copy, then call build_texture with
+        transfer_texture=True and source_model=<original_key>.
+
         Args:
             blending_mode: "natural" (default), "mosaic", "average", "min", "max", "disabled".
+                For texture transfer, use "mosaic".
             texture_size: Texture page size in pixels.
             ghosting_filter: Filter ghosting artifacts from moving objects.
             fill_holes: Fill holes in the texture.
+            transfer_texture: If True, transfer/bake texture from source_model
+                instead of projecting camera images.
+            source_model: Model key (integer) of the source model to bake from.
+                Only used when transfer_texture=True. Get model keys from
+                get_model_stats or list the chunk's models.
+            anti_aliasing: Enable anti-aliasing for smoother texture edges.
 
         Returns:
             Texture generation results.
         """
+        import Metashape
+
         chunk = get_chunk()
         require_model(chunk)
 
@@ -80,7 +102,7 @@ def register(mcp) -> None:
         blend = resolve_enum("blending_mode", blending_mode)
         cb = make_tracking_callback("Building texture")
 
-        chunk.buildTexture(
+        kwargs = dict(
             blending_mode=blend,
             texture_size=texture_size,
             ghosting_filter=ghosting_filter,
@@ -88,12 +110,40 @@ def register(mcp) -> None:
             progress=cb,
         )
 
+        # Anti-aliasing (Metashape 2.3+)
+        try:
+            kwargs["anti_aliasing"] = anti_aliasing
+        except Exception:
+            pass  # Older versions may not support this parameter
+
+        if transfer_texture:
+            # Find the source model by key
+            src = None
+            for m in chunk.models:
+                if m.key == source_model:
+                    src = m
+                    break
+            if src is None:
+                raise ValueError(
+                    f"Source model with key {source_model} not found in chunk. "
+                    f"Available model keys: {[m.key for m in chunk.models]}"
+                )
+            kwargs["transfer_texture"] = True
+            kwargs["source_model"] = src
+
+        chunk.buildTexture(**kwargs)
+
         auto_save()
-        return {
+        result = {
             "status": "texture_built",
             "texture_size": texture_size,
             "blending_mode": blending_mode,
+            "anti_aliasing": anti_aliasing,
         }
+        if transfer_texture:
+            result["transfer_texture"] = True
+            result["source_model_key"] = source_model
+        return result
 
     @mcp.tool()
     def calibrate_colors(

@@ -12,10 +12,12 @@ license = "MIT"
 dependencies = [
     "mcp[cli]>=1.2.0",
     "fastmcp>=2.0.0",
+    "httpx>=0.27.0",
 ]
 
 [project.scripts]
 metashape-mcp = "metashape_mcp.server:main"
+metashape-mcp-proxy = "metashape_mcp.multiplexer:main"
 
 [project.urls]
 Homepage = "https://github.com/jenkinsm13/metashape-mcp"
