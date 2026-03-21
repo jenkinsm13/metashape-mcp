@@ -1,11 +1,8 @@
 {
   "mcpServers": {
-    "metashape": {
-      "command": "python",
-      "args": ["-m", "metashape_mcp.proxy"],
-      "env": {
-        "PYTHONPATH": "C:/path/to/metashape-mcp/src"
-      }
+    "metashape-mcp": {
+      "command": "uv",
+      "args": ["run", "--directory", ".", "metashape-mcp"]
     }
   }
 }
