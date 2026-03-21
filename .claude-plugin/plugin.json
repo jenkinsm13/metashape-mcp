@@ -1,13 +1,18 @@
 {
   "name": "metashape-mcp",
-  "version": "0.1.0",
-  "description": "Claude Code plugin for Metashape photogrammetry — skills for dense reconstruction, tile export, and QA review, plus safety hooks for destructive operations.",
+  "version": "0.3.0",
+  "description": "MCP server + skills for Agisoft Metashape Professional 2.3+ — dense reconstruction, texturing, tile export, DEM/ortho generation, photogrammetry QA, and more.",
   "author": {
-    "name": "jenkinsm13",
+    "name": "Mike Jenkins",
     "url": "https://github.com/jenkinsm13"
   },
   "repository": "https://github.com/jenkinsm13/metashape-mcp",
   "license": "MIT",
-  "keywords": ["metashape", "photogrammetry", "3d-reconstruction", "blender", "terrain"],
-  "mcpServers": "./.mcp.json"
+  "keywords": ["metashape", "photogrammetry", "3d-reconstruction", "terrain", "mcp"],
+  "mcpServers": {
+    "metashape-mcp": {
+      "command": "uv",
+      "args": ["run", "--directory", ".", "metashape-mcp"]
+    }
+  }
 }

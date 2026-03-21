@@ -1,60 +1,63 @@
 {
-  "PreToolUse": [
-    {
-      "matcher": "mcp__metashape__(reset_camera_alignment|clear_model|clear_point_cloud|clear_depth_maps|clear_orthomosaic|clear_dem|clear_tiled_model)",
-      "hooks": [
-        {
-          "type": "command",
-          "command": "echo 'DESTRUCTIVE: This will permanently delete processed Metashape data that may have taken hours to generate.'"
-        }
-      ]
-    },
-    {
-      "matcher": "Edit|Write",
-      "hooks": [
-        {
-          "type": "command",
-          "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/block-psx-edit.sh"
-        }
-      ]
-    },
-    {
-      "matcher": "Edit|Write",
-      "hooks": [
-        {
-          "type": "command",
-          "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/block-reference-edit.sh"
-        }
-      ]
-    },
-    {
-      "matcher": "mcp__metashape__(build_depth_maps|build_point_cloud|build_model|build_texture|build_dem|build_orthomosaic)",
-      "hooks": [
-        {
-          "type": "command",
-          "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/preflight-estimate.sh"
-        }
-      ]
-    }
-  ],
-  "PostToolUse": [
-    {
-      "matcher": "Edit|Write",
-      "hooks": [
-        {
-          "type": "command",
-          "command": "ruff format --quiet \"$CLAUDE_FILE_PATH\" 2>/dev/null; ruff check --fix --quiet \"$CLAUDE_FILE_PATH\" 2>/dev/null; exit 0"
-        }
-      ]
-    },
-    {
-      "matcher": "mcp__metashape__(align_cameras|build_depth_maps|build_point_cloud|build_model|build_texture)",
-      "hooks": [
-        {
-          "type": "command",
-          "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/post-qa-reminder.sh"
-        }
-      ]
-    }
-  ]
+  "description": "Safety hooks for destructive Metashape operations and code quality enforcement",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "mcp__metashape__(reset_camera_alignment|clear_model|clear_point_cloud|clear_depth_maps|clear_orthomosaic|clear_dem|clear_tiled_model)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'DESTRUCTIVE: This will permanently delete processed Metashape data that may have taken hours to generate.'"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/block-psx-edit.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/block-reference-edit.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__metashape__(build_depth_maps|build_point_cloud|build_model|build_texture|build_dem|build_orthomosaic)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/preflight-estimate.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "ruff format --quiet \"$CLAUDE_FILE_PATH\" 2>/dev/null; ruff check --fix --quiet \"$CLAUDE_FILE_PATH\" 2>/dev/null; exit 0"
+          }
+        ]
+      },
+      {
+        "matcher": "mcp__metashape__(align_cameras|build_depth_maps|build_point_cloud|build_model|build_texture)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/hooks/scripts/post-qa-reminder.sh"
+          }
+        ]
+      }
+    ]
+  }
 }
