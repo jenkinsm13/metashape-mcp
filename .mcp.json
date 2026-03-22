@@ -2,7 +2,12 @@
   "mcpServers": {
     "metashape-mcp": {
       "command": "uv",
-      "args": ["run", "--directory", ".", "metashape-mcp"]
+      "args": [
+        "run",
+        "--directory",
+        "${CLAUDE_PLUGIN_ROOT}",
+        "metashape-mcp"
+      ]
     }
   }
 }

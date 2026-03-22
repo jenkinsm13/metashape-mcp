@@ -1,18 +1,29 @@
 {
   "name": "metashape-mcp",
   "version": "0.3.0",
-  "description": "MCP server + skills for Agisoft Metashape Professional 2.3+ — dense reconstruction, texturing, tile export, DEM/ortho generation, photogrammetry QA, and more.",
+  "description": "MCP server + skills for Agisoft Metashape Professional 2.3+ \u2014 dense reconstruction, texturing, tile export, DEM/ortho generation, photogrammetry QA, and more.",
   "author": {
     "name": "Mike Jenkins",
     "url": "https://github.com/jenkinsm13"
   },
   "repository": "https://github.com/jenkinsm13/metashape-mcp",
   "license": "MIT",
-  "keywords": ["metashape", "photogrammetry", "3d-reconstruction", "terrain", "mcp"],
+  "keywords": [
+    "metashape",
+    "photogrammetry",
+    "3d-reconstruction",
+    "terrain",
+    "mcp"
+  ],
   "mcpServers": {
     "metashape-mcp": {
       "command": "uv",
-      "args": ["run", "--directory", ".", "metashape-mcp"]
+      "args": [
+        "run",
+        "--directory",
+        "${CLAUDE_PLUGIN_ROOT}",
+        "metashape-mcp"
+      ]
     }
   }
 }
