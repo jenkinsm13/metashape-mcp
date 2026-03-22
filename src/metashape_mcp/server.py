@@ -1,14 +1,14 @@
 """FastMCP server entry point for Metashape MCP.
 
-This module creates the MCP server and registers all tools, resources,
-and prompts. It can be started embedded inside Metashape or standalone.
+This module creates the MCP server and registers all tools and resources.
+It can be started embedded inside Metashape or standalone.
+Workflow prompts have been replaced by plugin skills in skills/.
 """
 
 from mcp.server.fastmcp import FastMCP
 
 from metashape_mcp.tools import register_all_tools
 from metashape_mcp.resources import register_all_resources
-from metashape_mcp.prompts import register_all_prompts
 
 
 # the port can now be configured per-session.  callers may pass a port
@@ -74,9 +74,9 @@ def create_mcp(port: int | None = None) -> FastMCP:
 
     register_all_tools(mcp)
     register_all_resources(mcp)
-    register_all_prompts(mcp)
 
     return mcp
+
 
 # internal state for restart support
 _last_thread = None
@@ -112,11 +112,14 @@ def start_background(port: int | None = None):
     class _StdWrapper:
         def __init__(self, inner):
             self._inner = inner
+
         def write(self, s):
             return self._inner.write(s)
+
         def flush(self):
             if hasattr(self._inner, "flush"):
                 self._inner.flush()
+
         def isatty(self):
             return False
 
@@ -153,9 +156,7 @@ def start_background(port: int | None = None):
     thread.start()
     _last_thread = thread
 
-    print(
-        f"Metashape MCP server started on http://127.0.0.1:{mcp.port}/mcp"
-    )
+    print(f"Metashape MCP server started on http://127.0.0.1:{mcp.port}/mcp")
     return thread
 
 
