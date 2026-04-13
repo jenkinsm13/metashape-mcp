@@ -87,7 +87,16 @@ _OWN_TOOL_NAMES = {t.name for t in _OWN_TOOLS}
 
 async def _post_mcp(url: str, method: str, params: dict | None = None,
                     timeout: float | None = None) -> dict:
-    """Send a JSON-RPC request to a Metashape Streamable HTTP endpoint."""
+    """Send a JSON-RPC request to a Metashape Streamable HTTP endpoint.
+
+    Args:
+        url: The MCP endpoint URL.
+        method: JSON-RPC method name.
+        params: Method parameters.
+        timeout: Read/write timeout in seconds. Use a large value for
+            long-running operations (exports, builds). Connect timeout
+            is always 15s.
+    """
     request_body = {
         "jsonrpc": "2.0",
         "method": method,
@@ -95,7 +104,7 @@ async def _post_mcp(url: str, method: str, params: dict | None = None,
         "id": 1,
     }
     async with httpx.AsyncClient(
-        timeout=httpx.Timeout(timeout, connect=10.0)
+        timeout=httpx.Timeout(timeout, connect=15.0, pool=60.0)
     ) as client:
         resp = await client.post(
             url,
@@ -121,11 +130,16 @@ async def _fetch_tools(url: str) -> list[dict]:
 
 
 async def _forward_tool_call(url: str, name: str, arguments: dict) -> dict:
-    """Forward a tool call to the active instance. No timeout (ops can take hours)."""
+    """Forward a tool call to the active instance.
+
+    Uses a generous timeout (4 hours) rather than None so that truly dead
+    connections are eventually cleaned up, but long Metashape operations
+    (8K texture export, dense cloud build, etc.) can complete.
+    """
     return await _post_mcp(
         url, "tools/call",
         {"name": name, "arguments": arguments},
-        timeout=None,
+        timeout=14400.0,  # 4 hours — covers even multi-hour processing
     )
 
 
@@ -262,7 +276,22 @@ async def handle_call_tool(
     except httpx.ConnectError:
         raise RuntimeError(
             f"Connection lost to Metashape on port {_active_port}. "
-            f"Use list_instances to check status."
+            f"The instance may be restarting after a transport error. "
+            f"Use list_instances to check status, then switch_instance to reconnect."
+        )
+    except (httpx.ReadTimeout, httpx.WriteTimeout, httpx.PoolTimeout):
+        raise RuntimeError(
+            f"Timeout waiting for Metashape on port {_active_port}. "
+            f"The operation may still be running in Metashape. "
+            f"Use get_processing_status to check, or list_instances to verify "
+            f"the instance is alive."
+        )
+    except (httpx.ReadError, httpx.RemoteProtocolError) as e:
+        raise RuntimeError(
+            f"Connection to Metashape on port {_active_port} was interrupted: {e}. "
+            f"The operation likely completed or is still running in Metashape. "
+            f"Use get_processing_status to check progress, or list_instances "
+            f"to verify the instance is alive and switch_instance to reconnect."
         )
     except Exception as e:
         raise RuntimeError(f"Error forwarding to Metashape: {e}")

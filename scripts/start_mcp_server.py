@@ -16,9 +16,13 @@ import os
 from pathlib import Path
 
 # ──────────────────────────────────────────────────────────────────────
-# EDIT THIS PATH to point to your local clone of the metashape-mcp repo
+# Path to metashape-mcp src folder. Auto-detected from script location
+# if this script is inside the repo's scripts/ folder. Otherwise, edit
+# the fallback path below.
 # ──────────────────────────────────────────────────────────────────────
-METASHAPE_MCP_SRC = r"X:\tools\mcps\metashape-mcp\src"
+_SCRIPT_DIR = Path(__file__).resolve().parent
+_AUTO_SRC = _SCRIPT_DIR.parent / "src"
+METASHAPE_MCP_SRC = str(_AUTO_SRC) if _AUTO_SRC.is_dir() else r"C:\path\to\metashape-mcp\src"
 
 # Add the source directory to Python path
 if METASHAPE_MCP_SRC not in sys.path:

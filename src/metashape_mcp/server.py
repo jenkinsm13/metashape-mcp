@@ -9,7 +9,9 @@ Multi-instance support:
   - The multiplexer proxy reads these files to find and switch between instances
 """
 
+import logging
 import os
+import time
 
 from mcp.server.fastmcp import FastMCP
 
@@ -17,6 +19,8 @@ from metashape_mcp.tools import register_all_tools
 from metashape_mcp.resources import register_all_resources
 from metashape_mcp.prompts import register_all_prompts
 from metashape_mcp.discovery import find_free_port
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_PORT = 8765
 
@@ -181,8 +185,62 @@ def start_background(port: int | None = None):
     # Register this instance for discovery
     register_instance(resolved, project_path=project_path, metashape_version=metashape_version)
 
+    def _resilient_run():
+        """Run the MCP server in a loop, restarting on transient failures.
+
+        ConnectionResetError and similar transport-level errors (e.g. when a
+        client disconnects mid-request) can crash uvicorn and kill the server
+        thread.  This wrapper catches those and restarts the server so it
+        remains available for reconnection.
+        """
+        global _last_mcp
+        current_mcp = mcp
+        max_restarts = 20
+        restart_count = 0
+        while restart_count < max_restarts:
+            try:
+                current_mcp.run(transport="streamable-http")
+                # Clean exit (e.g. shutdown requested) — don't restart
+                break
+            except (ConnectionResetError, ConnectionAbortedError, OSError) as exc:
+                restart_count += 1
+                logger.warning(
+                    "MCP server transport error (restart %d/%d): %s",
+                    restart_count, max_restarts, exc,
+                )
+                print(
+                    f"[MCP] Transport error, restarting server "
+                    f"({restart_count}/{max_restarts}): {exc}"
+                )
+                # Brief pause to avoid tight restart loops
+                time.sleep(1.0)
+                # Re-create the MCP instance for a clean restart
+                current_mcp = create_mcp(resolved)
+                _last_mcp = current_mcp
+            except Exception as exc:
+                # Unexpected error — log and restart conservatively
+                restart_count += 1
+                logger.error(
+                    "MCP server unexpected error (restart %d/%d): %s",
+                    restart_count, max_restarts, exc,
+                    exc_info=True,
+                )
+                print(
+                    f"[MCP] Unexpected error, restarting server "
+                    f"({restart_count}/{max_restarts}): {exc}"
+                )
+                time.sleep(2.0)
+                current_mcp = create_mcp(resolved)
+                _last_mcp = current_mcp
+
+        if restart_count >= max_restarts:
+            print(
+                f"[MCP] Server exceeded {max_restarts} restarts — "
+                f"giving up. Manual restart required."
+            )
+
     thread = threading.Thread(
-        target=lambda: mcp.run(transport="streamable-http"),
+        target=_resilient_run,
         daemon=True,
     )
     thread.start()

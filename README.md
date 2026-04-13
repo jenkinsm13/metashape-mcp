@@ -31,6 +31,7 @@ This MCP server runs embedded inside Metashape's Python environment and exposes 
 - Progress reporting for dense cloud, mesh, and texture generation
 - Full coordinate reference system (CRS/EPSG) support
 - **Non-blocking UI** — the Metashape GUI stays fully interactive while the AI processes in the background
+- **Multi-instance support** — work with multiple Metashape projects simultaneously via the multiplexer, with automatic instance discovery and seamless switching
 - **Headless mode** — run without GUI on remote servers, VMs, or CI pipelines for automated processing
 
 ### Tool Categories
@@ -265,12 +266,127 @@ How many cameras are aligned? What's the reprojection error?
 What processing steps are still needed?
 ```
 
+## Multi-Instance Support
+
+Work with multiple Metashape projects simultaneously. The multiplexer discovers all running Metashape instances and routes tool calls to the one you choose.
+
+### How It Works
+
+```
+Claude Code/Desktop --stdio--> Multiplexer --HTTP--> Metashape A (:8765) — Project_1.psx
+                                           --HTTP--> Metashape B (:8766) — Project_2.psx
+                                           --HTTP--> Metashape C (:8767) — Project_3.psx
+```
+
+Each Metashape instance runs its own MCP server on a unique port. The multiplexer sits between your AI client and the instances, forwarding tool calls to whichever instance is currently active. Two extra tools are added for instance management:
+
+| Tool | Description |
+|------|-------------|
+| `list_instances` | Show all running instances with port, PID, project path, and active status |
+| `switch_instance` | Route all subsequent tool calls to a specific instance by port number |
+
+### Setup
+
+**1. Start MCP servers in each Metashape instance**
+
+Each Metashape instance auto-assigns a unique port from the range 8765-8784. Just open multiple Metashape windows and start the MCP server in each one (via the startup script or manually). Each instance registers itself via a discovery file so the multiplexer can find it.
+
+To force a specific port, set the `METASHAPE_MCP_PORT` environment variable before starting Metashape.
+
+**2. Configure your AI client to use the multiplexer**
+
+Instead of connecting directly to a single instance's HTTP endpoint, point your client at the multiplexer's stdio transport.
+
+**Claude Code** (`.mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "metashape": {
+      "type": "stdio",
+      "command": "python",
+      "args": ["path/to/metashape-mcp/src/metashape_mcp/multiplexer.py"]
+    }
+  }
+}
+```
+
+**Claude Desktop** (`claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "metashape": {
+      "command": "python",
+      "args": ["path/to/metashape-mcp/src/metashape_mcp/multiplexer.py"]
+    }
+  }
+}
+```
+
+The multiplexer requires `httpx` in your system Python (where Claude Code runs):
+
+```bash
+pip install httpx "mcp[cli]>=1.2.0"
+```
+
+**3. Use it**
+
+The multiplexer auto-connects to the first available instance on startup. Use `list_instances` to see all running instances and `switch_instance` to change which one receives your commands:
+
+```
+> list_instances
+
+Instance 1: port 8765, Project_A.psx (active)
+Instance 2: port 8766, Project_B.psx
+Instance 3: port 8767, Project_C.psx
+
+> switch_instance 8766
+
+Connected to port 8766 — Project_B.psx
+```
+
+All 106+ Metashape tools work transparently through the multiplexer. There is no timeout limit on forwarded operations — long-running processing (dense clouds, mesh building, texture generation) will complete normally.
+
+### Technical Details
+
+- **Auto-port assignment**: Each instance finds the first free port in 8765-8784 on startup
+- **Discovery files**: Written to `%LOCALAPPDATA%/metashape-mcp/instances/{port}.json` (Windows) or `~/.metashape-mcp/instances/` (macOS/Linux). Cleaned up on exit; stale files from crashes are auto-removed via TCP health checks
+- **Forwarding timeout**: 4 hours per tool call — long enough for any Metashape operation, short enough to detect dead connections
+- **Error recovery**: Connection errors, timeouts, and protocol interruptions return actionable messages suggesting `list_instances` / `switch_instance` to reconnect
+
+### Key Files
+
+| File | Role |
+|------|------|
+| `src/metashape_mcp/multiplexer.py` | Stdio MCP server — discovers instances, adds `list_instances`/`switch_instance`, forwards all other tool calls via HTTP |
+| `src/metashape_mcp/discovery.py` | Instance registration, port scanning, discovery file I/O, stale cleanup |
+| `src/metashape_mcp/proxy.py` | Simple single-instance stdio proxy (legacy — use multiplexer instead for multi-instance) |
+
+### Single-Instance Fallback
+
+If you only ever run one Metashape instance, the multiplexer still works — it auto-connects to the only available instance. You can also use the simpler `proxy.py` or direct HTTP connection instead:
+
+```json
+{
+  "mcpServers": {
+    "metashape": {
+      "type": "http",
+      "url": "http://127.0.0.1:8765/mcp"
+    }
+  }
+}
+```
+
 ## Architecture
 
 ```
 src/metashape_mcp/
 ├── server.py           # FastMCP entry point, Streamable HTTP transport
-├── proxy.py            # Stdio-to-HTTP proxy for Claude Code
+├── multiplexer.py      # Stdio MCP proxy — multi-instance routing
+├── discovery.py        # Instance discovery file management
+├── proxy.py            # Simple single-instance stdio proxy (legacy)
+├── discovery.py        # Instance discovery file management
 ├── tools/              # 15 modules organized by photogrammetry stage
 │   ├── project.py      # Project management and GPU configuration
 │   ├── photos.py       # Photo import and quality analysis
