@@ -161,11 +161,12 @@ def start_background(port: int | None = None):
             )
             return _last_thread
         else:
-            print(f"Shutting down MCP on port {_last_mcp.settings.port}...")
-            try:
-                _last_mcp.shutdown()
-            except Exception:
-                print("Warning: previous MCP server may still be running.")
+            print(
+                f"Warning: MCP server already running on port "
+                f"{_last_mcp.settings.port}. Cannot restart on a "
+                f"different port without restarting Metashape."
+            )
+            return _last_thread
 
     # Create new instance
     mcp = create_mcp(resolved)

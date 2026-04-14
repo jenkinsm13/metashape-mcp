@@ -80,8 +80,6 @@ _OWN_TOOLS = [
     ),
 ]
 
-_OWN_TOOL_NAMES = {t.name for t in _OWN_TOOLS}
-
 
 # ── HTTP forwarding ───────────────────────────────────────────────
 
@@ -166,15 +164,20 @@ async def _query_project_info(port: int) -> dict | None:
 
 async def _handle_list_instances() -> list[types.TextContent]:
     """List all discovered Metashape instances with live project info."""
+    import asyncio
+
     instances = discover_instances(check_alive=True)
-    for inst in instances:
+
+    # Query all instances concurrently for live project info
+    async def _enrich(inst):
         inst["active"] = inst.get("port") == _active_port
-        # Fetch live project info (overrides stale discovery data)
         info = await _query_project_info(inst["port"])
         if info:
             inst["project_path"] = info.get("path", "")
             inst["chunks"] = info.get("chunks", 0)
             inst["active_chunk"] = info.get("active_chunk")
+
+    await asyncio.gather(*[_enrich(inst) for inst in instances])
     result = {
         "instances": instances,
         "active_port": _active_port,
@@ -296,14 +299,34 @@ async def handle_call_tool(
     except Exception as e:
         raise RuntimeError(f"Error forwarding to Metashape: {e}")
 
-    # Extract content from the JSON-RPC response
+    # Extract content from the JSON-RPC response, preserving all content types
     if "result" in response:
         result = response["result"]
         if isinstance(result, dict) and "content" in result:
-            return [
-                types.TextContent(type="text", text=c.get("text", ""))
-                for c in result["content"]
-                if c.get("type") == "text"
+            content_items = []
+            for c in result["content"]:
+                ctype = c.get("type")
+                if ctype == "text":
+                    content_items.append(
+                        types.TextContent(type="text", text=c.get("text", ""))
+                    )
+                elif ctype == "image":
+                    content_items.append(
+                        types.ImageContent(
+                            type="image",
+                            data=c.get("data", ""),
+                            mimeType=c.get("mimeType", "image/png"),
+                        )
+                    )
+                elif ctype == "resource":
+                    content_items.append(
+                        types.EmbeddedResource(
+                            type="resource",
+                            resource=c.get("resource", {}),
+                        )
+                    )
+            return content_items if content_items else [
+                types.TextContent(type="text", text=json.dumps(result, indent=2))
             ]
         return [types.TextContent(type="text", text=json.dumps(result, indent=2))]
     elif "error" in response:
