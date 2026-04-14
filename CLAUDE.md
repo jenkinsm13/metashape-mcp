@@ -41,7 +41,7 @@ src/metashape_mcp/
 - **NEVER write pipeline scripts.** This is an MCP server for AI agents. Call each tool individually, check the result, reason about it, then call the next tool. NEVER batch MCP calls into a Python script — that defeats the entire purpose of agent-driven tool calling.
 - **Prefer MCP tools over `execute_python`.** Only use `execute_python` when there is no MCP tool for the operation (e.g. switching active model by key, texture transfer with `source_asset`). For everything else — decimation, UV mapping, texture building from images, export, alignment, etc. — use the dedicated MCP tools. They handle progress, errors, and timeouts better than raw Python.
 - **ALWAYS `keep_keypoints=True`** when calling `match_photos`. This is the default in our tool (overriding Metashape's False default). Without it, incremental batch alignment fails.
-- **USGS tie point filtering**: RU=10, PA=3, RE=0.3. NEVER remove more than 50% of tie points in one pass — the tool auto-raises the threshold if >50% would be selected.
+- **Tie point filtering safety**: NEVER remove more than 50% of tie points in one pass — the tool auto-raises the threshold if >50% would be selected.
 - **No timeouts.** MCP tool calls block until the Metashape operation completes. Operations can take hours or days.
 
 ## Key Patterns
@@ -77,60 +77,6 @@ src/metashape_mcp/
 - **`tex.setImage()` uses positional args only**: `tex.setImage(img, page=1)` fails — Metashape C++ bindings don't accept keyword args. Use `tex.setImage(img, 1)`.
 - **Check ALL texture pages, not just page 0**: `tex.image()` returns page 0. A texture may have 10+ pages — iterate `tex.image(i)` for `i in range(page_count)` to inspect/fix all of them.
 
-## Workflow: PBR Multi-LOD Export
-
-Creates medium and low quality versions of PBR model sets (diffuse/rough/metal) with matching UVs, bakes textures from originals, and exports in the standard PBR pattern.
-
-### Prerequisites
-- A chunk with 3 textured models sharing the same mesh: `{prefix}-diffuse`, `{prefix}-rough`, `{prefix}-metal`
-- Example: `high-diffuse`, `high-rough`, `high-metal`
-
-### Steps
-
-**1. Decimate** — Set the diffuse model active, use `decimate_model` to target face count. This creates a new model. Rename it via `execute_python`: `chunk.model.label = "medium-diffuse"`
-
-**2. Build UV** — Use `build_uv` (MCP tool) on the decimated model. **WARNING: UV unwrap takes several minutes (3+ min for 500K+ faces). The MCP proxy will likely timeout. After timeout, poll `get_processing_status` until idle before continuing.**
-- Medium: 2 pages × 4096
-- Low: 1 page × 4096
-
-**3. Copy mesh** — Use `execute_python` to copy the diffuse model (with UV) for rough and metal variants. This guarantees identical UV layouts:
-```python
-med_diff = next(m for m in chunk.models if m.label == "medium-diffuse")
-med_rough = med_diff.copy()
-med_rough.label = "medium-rough"
-med_metal = med_diff.copy()
-med_metal.label = "medium-metal"
-```
-
-**4. Bake textures** — Use `execute_python` with `buildTexture`. Must use `MosaicBlending`:
-```python
-doc = Metashape.app.document
-doc.chunk = chunk
-chunk.model = target_model
-chunk.buildTexture(
-    blending_mode=Metashape.BlendingMode.MosaicBlending,
-    texture_size=4096,
-    fill_holes=False,
-    anti_aliasing=1,
-    source_asset=source_model.key,
-    transfer_texture=True,
-    source_data=Metashape.DataSource.ModelData,
-)
-```
-Bake each pair: high-diffuse→medium-diffuse, high-rough→medium-rough, high-metal→medium-metal.
-
-**5. Repeat steps 1-4** for low quality level.
-
-**6. Export** — For each quality level:
-- **diffuse**: `exportModel` as OBJ with JPG texture → `{name}_{quality}.obj` + `.mtl` + `.jpg`
-- **rough**: export as OBJ, then delete `.obj` and `.mtl`, keep only `.jpg` → `{name}_{quality}_roughness.jpg`
-- **metal**: same as rough → `{name}_{quality}_metalness.jpg`
-
-### Notes
-- Multi-page textures (e.g. `_high1.jpg`) are normal for higher quality levels
-- Never call `model.statistics()` on large models — causes lockups
-- Always set `doc.chunk = chunk` before `buildTexture` with `source_asset`
-
 ## Multi-Instance Support
 
 Multiple Metashape instances can run simultaneously, each with its own MCP server.
@@ -157,7 +103,7 @@ Claude Code/Desktop --stdio--> Multiplexer --HTTP--> Metashape A (:8765)
   "mcpServers": {
     "metashape": {
       "command": "python",
-      "args": ["X:/tools/mcps/metashape-mcp/src/metashape_mcp/multiplexer.py"]
+      "args": ["path/to/metashape-mcp/src/metashape_mcp/multiplexer.py"]
     }
   }
 }
