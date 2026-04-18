@@ -49,7 +49,7 @@ build_uv(
 
 ```
 build_texture(
-    blending_mode="mosaic",
+    blending_mode="natural",
     texture_size=8192,
     ghosting_filter=True
 )
@@ -76,23 +76,25 @@ Run this BEFORE `build_texture` for best results. Color calibration normalizes b
 
 This is the most important texture decision. Each mode produces dramatically different results.
 
-### Mosaic
-```
-build_texture(blending_mode="mosaic", ...)
-```
-- **How it works:** Each face gets texture from the single best camera (closest, most perpendicular)
-- **Result:** Sharpest possible detail per-patch. Road markings, text, and fine detail are crisp.
-- **Downside:** Visible seams between patches where camera color/exposure differs
-- **Best for:** Road corridors (sharp road markings), architectural detail, anything where sharpness > seamlessness
+**Default: always use "natural" unless the user explicitly requests otherwise.**
 
-### Natural
+### Natural (Default)
 ```
 build_texture(blending_mode="natural", ...)
 ```
 - **How it works:** Blends multiple camera contributions with smooth falloff at seams
-- **Result:** Smooth color transitions, no visible seams. Slightly softer detail.
-- **Downside:** Road markings and text slightly blurry from multi-camera averaging
-- **Best for:** Organic surfaces, vegetation, rock faces, anything where seamlessness > sharpness
+- **Result:** Smooth color transitions, no visible seams. Clean, seamless textures.
+- **Best for:** Everything — walls, road corridors, objects, terrain, organic surfaces
+- **Why default:** Produces the most professional-looking result without color seams or patchwork artifacts
+
+### Mosaic (User-requested only)
+```
+build_texture(blending_mode="mosaic", ...)
+```
+- **How it works:** Each face gets texture from the single best camera (closest, most perpendicular)
+- **Result:** Sharpest possible detail per-patch, but visible seams between patches
+- **Downside:** Color/exposure seams between patches. Requires very consistent exposure across all cameras.
+- **When to use:** Only when the user specifically requests maximum sharpness and accepts seam artifacts
 
 ### Average
 ```
@@ -143,13 +145,13 @@ If the mesh was modified (decimated, cleaned, split) after initial texturing:
 ```
 # UV map may be invalid after mesh changes — rebuild
 build_uv(mapping_mode="generic", texture_size=8192)
-build_texture(blending_mode="mosaic", texture_size=8192, ghosting_filter=True)
+build_texture(blending_mode="natural", texture_size=8192, ghosting_filter=True)
 ```
 
 If only small edits were made and UV is still valid:
 ```
 # Just rebuild texture, keep existing UV
-build_texture(blending_mode="mosaic", texture_size=8192, ghosting_filter=True)
+build_texture(blending_mode="natural", texture_size=8192, ghosting_filter=True)
 ```
 
 ## Diagnosing Texture Problems
@@ -208,7 +210,7 @@ The **handoff-coordinator** agent manages this round-trip.
 ```
 calibrate_colors(source_data="model")
 build_uv(mapping_mode="generic", texture_size=8192)
-build_texture(blending_mode="mosaic", texture_size=8192, ghosting_filter=True)
+build_texture(blending_mode="natural", texture_size=8192, ghosting_filter=True)
 ```
 
 ### Aerial terrain (orthomosaic alternative)
@@ -226,5 +228,5 @@ build_texture(blending_mode="natural", texture_size=16384, ghosting_filter=False
 ### Quick preview
 ```
 build_uv(mapping_mode="generic", texture_size=4096)
-build_texture(blending_mode="mosaic", texture_size=4096, ghosting_filter=False)
+build_texture(blending_mode="natural", texture_size=4096, ghosting_filter=False)
 ```

@@ -3,6 +3,12 @@
 Tracks global operation state so get_processing_status can report it.
 Supports cancellation via a shared flag that causes Metashape to abort
 the current operation through its progress callback.
+
+Handles two cancellation scenarios:
+  1. Explicit cancel — user calls cancel_processing tool, sets _cancel_event
+  2. Superseded operation — a new operation starts while an old one is still
+     running (e.g. client disconnected mid-operation). The old callback
+     detects it is no longer the active operation and aborts.
 """
 
 import threading
@@ -21,6 +27,12 @@ _operation_state = {
     "last_callback_at": 0.0,
 }
 _state_lock = threading.Lock()
+
+# Current operation ID — each make_tracking_callback creates a unique sentinel.
+# If a callback's ID no longer matches, it was superseded by a newer operation
+# and should abort.  This handles orphaned operations from client disconnects.
+_current_op_id = None
+_op_lock = threading.Lock()
 
 # If no progress callback fires within this window, assume the operation died.
 # Large operations may have gaps between callbacks — 120s is conservative.
@@ -91,17 +103,37 @@ def make_tracking_callback(operation: str):
     This updates global operation state for status queries and checks
     the cancel flag to abort if requested.
 
+    Each callback gets a unique operation ID.  If a new operation starts
+    (new callback created), the previous callback will detect that its ID
+    no longer matches the global current ID and abort — this handles
+    orphaned operations from client disconnects without race conditions.
+
     Args:
         operation: Human-readable operation name.
 
     Returns:
         A callable(float) -> bool suitable for Metashape's progress parameter.
     """
+    # Create a unique sentinel for this operation
+    op_id = object()
+    with _op_lock:
+        global _current_op_id
+        _current_op_id = op_id
+
     clear_cancel()
 
     def callback(progress_value: float) -> bool:
         _set_operation(operation, progress_value)
 
+        # Check if this operation was superseded by a newer one
+        with _op_lock:
+            if _current_op_id is not op_id:
+                _clear_operation()
+                raise RuntimeError(
+                    f"Operation aborted (superseded by newer request): {operation}"
+                )
+
+        # Check for explicit cancel request
         if _cancel_event.is_set():
             _cancel_event.clear()
             _clear_operation()

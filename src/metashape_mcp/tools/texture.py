@@ -92,9 +92,7 @@ def register(mcp) -> None:
         require_model(chunk)
 
         if chunk.model.tex_vertices is None or len(chunk.model.tex_vertices) == 0:
-            raise RuntimeError(
-                "No UV mapping found. Run 'build_uv' first."
-            )
+            raise RuntimeError("No UV mapping found. Run 'build_uv' first.")
 
         # validate parameters
         if source_model_key is not None and blending_mode.lower() != "mosaic":
@@ -127,11 +125,19 @@ def register(mcp) -> None:
         chunk.buildTexture(**kwargs)
 
         auto_save()
-        return {
+        model = chunk.model
+        texture_count = len(model.textures) if model and model.textures else 0
+        result = {
             "status": "texture_built",
             "texture_size": texture_size,
             "blending_mode": blending_mode,
+            "texture_count": texture_count,
         }
+        if model and model.textures:
+            tex = model.textures[0]
+            result["texture_width"] = tex.width
+            result["texture_height"] = tex.height
+        return result
 
     @mcp.tool()
     def calibrate_colors(

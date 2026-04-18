@@ -41,7 +41,9 @@ def register(mcp) -> None:
         downscale_map = {"ultra": 1, "high": 2, "medium": 4, "low": 8}
         ds = downscale_map.get(quality, 4)
 
-        return AGENT_RULES + f"""Process this aerial/drone survey step by step:
+        return (
+            AGENT_RULES
+            + f"""Process this aerial/drone survey step by step:
 
 1. **Create Project**: create_project("{project_path}")
 2. **Add Photos**: add_photos(["{photo_folder}"])
@@ -69,6 +71,7 @@ After each step, check the result and report progress.
 Quality setting: {quality} (downscale={ds})
 Use resources to monitor processing state between steps.
 """
+        )
 
     @mcp.prompt()
     def close_range_pipeline(
@@ -89,7 +92,9 @@ Use resources to monitor processing state between steps.
         downscale_map = {"ultra": 1, "high": 2, "medium": 4, "low": 8}
         ds = downscale_map.get(quality, 4)
 
-        return AGENT_RULES + f"""Process this close-range/object reconstruction step by step:
+        return (
+            AGENT_RULES
+            + f"""Process this close-range/object reconstruction step by step:
 
 1. **Create Project**: create_project("{project_path}")
 2. **Add Photos**: add_photos(["{photo_folder}"])
@@ -109,7 +114,7 @@ Use resources to monitor processing state between steps.
 12. **Clean Model**: clean_model(criterion="component_size", level=50)
 13. **Smooth Model** (optional): smooth_model(strength=2, preserve_edges=True)
 14. **Build UV**: build_uv(mapping_mode="generic", texture_size=8192)
-15. **Build Texture**: build_texture(blending_mode="mosaic", texture_size=8192, ghosting_filter=True)
+15. **Build Texture**: build_texture(blending_mode="natural", texture_size=8192, ghosting_filter=True)
     # additional options: anti_aliasing=1, source_model_key=<int>, transfer_texture=True,
     # source_data="model" when baking from another mesh
 16. **Save Project**: save_project()
@@ -117,6 +122,7 @@ Use resources to monitor processing state between steps.
 Quality setting: {quality} (downscale={ds})
 For objects, use "arbitrary" surface type (not "height_field").
 """
+        )
 
     @mcp.prompt()
     def batch_export(
@@ -129,7 +135,9 @@ For objects, use "arbitrary" surface type (not "height_field").
             output_folder: Directory for exported files.
             formats: "all" or comma-separated list of products.
         """
-        return AGENT_RULES + f"""Export all available processing results:
+        return (
+            AGENT_RULES
+            + f"""Export all available processing results:
 
 First, check what's available using metashape://project/chunks resource.
 
@@ -146,6 +154,7 @@ Then export each available product to "{output_folder}":
 Skip products that don't exist. Report file sizes after export.
 Requested formats: {formats}
 """
+        )
 
     @mcp.prompt()
     def road_corridor_pipeline(
@@ -186,7 +195,9 @@ Requested formats: {formats}
             gps_step = f"""
 4. **Set CRS**: set_crs(epsg_code={crs_epsg}) — GPS will be loaded from EXIF"""
 
-        return AGENT_RULES + f"""Process this road corridor capture for driving simulator use.
+        return (
+            AGENT_RULES
+            + f"""Process this road corridor capture for driving simulator use.
 
 **YOU ARE AN ITERATIVE OPERATOR, NOT A SCRIPT RUNNER.**
 Do NOT blindly execute steps. After every operation, CHECK the results
@@ -292,13 +303,14 @@ accuracy. GCPs are placed manually in the Metashape GUI at road markings
 **Phase 5: Texture & Export**
 
 19. **Build UV**: build_uv(mapping_mode="generic", texture_size=8192)
-20. **Build Texture**: build_texture(blending_mode="mosaic", texture_size=8192, ghosting_filter=True)
-    - Mosaic blending preserves sharp road markings
+20. **Build Texture**: build_texture(blending_mode="natural", texture_size=8192, ghosting_filter=True)
+    - Natural blending produces seamless textures without color seams
     - Ghosting filter handles cars that moved between frames
     - Optional parameters allow baking from a different model (see tool docs)
-21. **Export**: export_model("{project_path.replace('.psx', '')}.{export_format}", format="{export_format}", save_texture=True)
-22. **Export Report**: export_report("{project_path.replace('.psx', '_report.pdf')}")
+21. **Export**: export_model("{project_path.replace(".psx", "")}.{export_format}", format="{export_format}", save_texture=True)
+22. **Export Report**: export_report("{project_path.replace(".psx", "_report.pdf")}")
 23. **Save Project**: save_project()
 
 Quality: {quality} (downscale={ds}) | Target faces: {faces:,} | Export: {export_format}
 """
+        )
