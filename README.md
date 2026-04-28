@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/jenkinsm13-metashape-mcp-badge.png)](https://mseep.ai/app/jenkinsm13-metashape-mcp)
+
 # Metashape MCP Server — AI-Powered Photogrammetry Automation
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
