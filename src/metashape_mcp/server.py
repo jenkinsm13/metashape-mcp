@@ -147,6 +147,8 @@ def start_background(port: int | None = None):
 
     # create new instance with requested port and launch
     mcp = create_mcp(port)
+    # fastmcp 3.x dropped the `.port` attribute on FastMCP; preserve it for our own use
+    mcp.port = port
     _last_mcp = mcp
 
     thread = threading.Thread(
